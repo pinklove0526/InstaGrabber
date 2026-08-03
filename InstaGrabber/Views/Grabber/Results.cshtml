@@ -1,0 +1,195 @@
+@model MediaResultsViewModel
+@{
+    ViewData["Title"] = "Media";
+}
+
+<div class="page-header">
+    <h1>
+        Media <small>@Model.TotalItems item@(Model.TotalItems == 1 ? "" : "s") across @Model.Reels.Count reel@(Model.Reels.Count == 1 ? "" : "s")</small>
+    </h1>
+</div>
+
+<div class="alert alert-info">
+    <strong>About these downloads.</strong> Files are streamed through this app rather than
+    linked directly, so signed and hotlink-protected CDN URLs still work. Download links stay
+    valid for six hours — after that, paste the response again to refresh them.
+</div>
+
+@if (Model.Reels.Count == 0)
+{
+    <div class="alert">The response parsed cleanly but contained no reels.</div>
+}
+
+@foreach (var reel in Model.Reels)
+{
+    <div class="well well-small">
+        @if (reel.OwnerProfilePicUrl is not null)
+        {
+            <img src="@reel.OwnerProfilePicUrl" alt="@reel.OwnerUsername" class="ig-avatar pull-left" />
+        }
+        <h3 style="margin: 0;">
+            @(reel.OwnerUsername is null ? "(unknown account)" : "@" + reel.OwnerUsername)
+            @if (reel.OwnerIsVerified)
+            {
+                <span class="label label-info">verified</span>
+            }
+            @if (reel.OwnerIsPrivate)
+            {
+                <span class="label">private</span>
+            }
+        </h3>
+        <span class="muted">@reel.ReelType &middot; @reel.Items.Count item@(reel.Items.Count == 1 ? "" : "s")</span>
+    </div>
+
+    @if (reel.Items.Count == 0)
+    {
+        <p class="muted">No items in this reel.</p>
+    }
+
+    <ul class="thumbnails">
+        @foreach (var item in reel.Items)
+        {
+            <li class="span4">
+                <div class="thumbnail">
+                    @if (item.ThumbnailUrl is not null)
+                    {
+                        <img src="@item.ThumbnailUrl" alt="@item.Code" class="ig-thumb" />
+                    }
+                    else
+                    {
+                        <div class="ig-thumb ig-thumb-empty">No preview</div>
+                    }
+
+                    <div class="caption">
+                        <h5>
+                            @{
+                                var labelClass = item.Kind switch
+                                {
+                                    StoryMediaKind.Video => "label-important",
+                                    StoryMediaKind.Image => "label-info",
+                                    _ => "label-warning",
+                                };
+                            }
+                            <span class="label @labelClass">@item.MediaTypeLabel</span>
+                            @if (item.DurationLabel is not null)
+                            {
+                                <span class="badge">@item.DurationLabel</span>
+                            }
+                            @if (item.HasDimensions)
+                            {
+                                <span class="muted">@item.Width&times;@item.Height</span>
+                            }
+                        </h5>
+
+                        <p>
+                            @if (!string.IsNullOrWhiteSpace(item.Caption))
+                            {
+                                @item.Caption
+                            }
+                            else
+                            {
+                                <span class="muted"><em>No caption</em></span>
+                            }
+                        </p>
+
+                        <p class="muted" style="font-size: 11px;">
+                            <code>@item.Code</code><br />
+                            @if (item.TakenAtUtc is { } takenAt)
+                            {
+                                <text>Taken @takenAt.ToString("yyyy-MM-dd HH:mm") UTC<br /></text>
+                            }
+                            @if (item.ExpiresAtUtc is { } expiresAt)
+                            {
+                                <text>Expires @expiresAt.ToString("yyyy-MM-dd HH:mm") UTC</text>
+                            }
+                            @if (item.MusicLabel is not null)
+                            {
+                                <br />
+                                <text>&#9834; @item.MusicLabel</text>
+                            }
+                            @if (item.Mentions.Count > 0)
+                            {
+                                <br />
+                                <text>Mentions @string.Join(", ", item.Mentions.Select(m => "@" + m))</text>
+                            }
+                        </p>
+
+                        @* Videos download from video_versions; photos from the widest
+                           image_versions2 candidate. A video's candidates are the cover frame
+                           shown above, never a download target. *@
+                        @if (item.PrimaryDownload is not null)
+                        {
+                            <p>
+                                <a class="btn btn-success" asp-controller="Grabber" asp-action="Download"
+                                   asp-route-token="@item.PrimaryDownload.Token">@item.PrimaryDownload.Label</a>
+                            </p>
+                        }
+                        else
+                        {
+                            <div class="alert alert-block" style="margin-bottom: 0;">
+                                <strong>No download.</strong>
+                                @if (item.Kind is null)
+                                {
+                                    <text>@item.MediaTypeLabel &mdash; only photos and videos can be downloaded.</text>
+                                }
+                                else
+                                {
+                                    <text>This item carries no usable media URL.</text>
+                                }
+                            </div>
+                        }
+
+                        @if (item.AlternateRenditions.Count > 0)
+                        {
+                            <p>
+                                <span class="muted" style="font-size: 11px;">Other renditions:</span><br />
+                                <span class="btn-group">
+                                    @foreach (var rendition in item.AlternateRenditions)
+                                    {
+                                        <a class="btn btn-mini" asp-controller="Grabber" asp-action="Download"
+                                           asp-route-token="@rendition.Token">@rendition.Label</a>
+                                    }
+                                </span>
+                            </p>
+                        }
+
+                        @if (item.CarouselChildren.Count > 0)
+                        {
+                            <hr style="margin: 9px 0;" />
+                            <p class="muted" style="font-size: 11px;">
+                                Carousel &mdash; @item.CarouselChildren.Count item@(item.CarouselChildren.Count == 1 ? "" : "s"),
+                                each downloaded separately:
+                            </p>
+                            <ul class="thumbnails" style="margin-bottom: 0;">
+                                @foreach (var child in item.CarouselChildren)
+                                {
+                                    <li class="span1" style="width: 78px;">
+                                        @if (child.ThumbnailUrl is not null)
+                                        {
+                                            <img src="@child.ThumbnailUrl" alt="@child.Position" style="width: 100%;" />
+                                        }
+                                        <span class="muted" style="font-size: 10px;">@child.Position. @child.MediaTypeLabel</span>
+                                        <a class="btn btn-mini btn-success" asp-controller="Grabber" asp-action="Download"
+                                           asp-route-token="@child.Download.Token">@child.Download.Label</a>
+                                    </li>
+                                }
+                            </ul>
+                        }
+
+                        @if (item.HasUnreadableCarousel)
+                        {
+                            <div class="alert alert-block" style="margin-bottom: 0;">
+                                <strong>Carousel not read.</strong> This item carries
+                                <code>carousel_media</code> in a shape this app hasn't seen before.
+                                Send the response through so the reader can be built against real data.
+                            </div>
+                        }
+                    </div>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+<hr />
+<a class="btn btn-primary" asp-controller="Grabber" asp-action="Index">Parse another response</a>
