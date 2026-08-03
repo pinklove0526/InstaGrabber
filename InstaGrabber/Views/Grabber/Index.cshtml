@@ -1,0 +1,38 @@
+@model PasteJsonViewModel
+@{
+    ViewData["Title"] = "Paste response";
+}
+
+<div class="page-header">
+    <h1>Paste response <small>Phase 1 — nothing is fetched from Instagram</small></h1>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-error">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <h4>Couldn't read that</h4>
+        @Model.ErrorMessage
+        @if (!string.IsNullOrEmpty(Model.ErrorDetail))
+        {
+            <p style="margin-top: 9px;">
+                <a class="btn btn-mini" data-toggle="collapse" href="#errorDetail">Show details</a>
+            </p>
+            <div id="errorDetail" class="collapse">
+                <pre class="pre-scrollable">@Model.ErrorDetail</pre>
+            </div>
+        }
+    </div>
+}
+
+<form asp-controller="Grabber" asp-action="Index" method="post" class="well">
+    <label for="Json"><strong>Response body from the <code>query</code> endpoint</strong></label>
+    <textarea asp-for="Json" id="Json" class="input-block-level" rows="16"
+              placeholder='{"data":{"xdt_api__v1__feed__reels_media":{ ... }}}' spellcheck="false"></textarea>
+    <p class="help-block">
+        Paste the whole response body, starting at the opening <code>{</code>. It is parsed
+        strictly — an unexpected shape is reported rather than partially read.
+    </p>
+    <button type="submit" class="btn btn-primary btn-large">Parse media</button>
+    <a class="btn btn-large" asp-controller="Home" asp-action="Index">Cancel</a>
+</form>

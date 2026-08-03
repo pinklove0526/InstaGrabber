@@ -1,0 +1,66 @@
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+    // Both controllers have an Index action, so match on the pair.
+    string? ActiveIf(string controller, string action) =>
+        currentController == controller && currentAction == action ? "active" : null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - InstaGrabber</title>
+    @* Bootstrap 2.3.2 — responsive stylesheet must follow the base stylesheet. *@
+    <link rel="stylesheet" href="~/lib/bootstrap2/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap2/css/bootstrap-responsive.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/InstaGrabber.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <div class="navbar navbar-inverse navbar-static-top">
+            <div class="navbar-inner">
+                <div class="container">
+                    <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </a>
+                    <a class="brand" asp-area="" asp-controller="Home" asp-action="Index">InstaGrabber</a>
+                    <div class="nav-collapse collapse">
+                        <ul class="nav">
+                            <li class="@ActiveIf("Home", "Index")">
+                                <a asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                            </li>
+                            <li class="@ActiveIf("Grabber", "Index")">
+                                <a asp-area="" asp-controller="Grabber" asp-action="Index">Grab media</a>
+                            </li>
+                            <li class="@ActiveIf("Home", "Privacy")">
+                                <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <span class="muted">&copy; 2026 - InstaGrabber - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a></span>
+        </div>
+    </footer>
+
+    @* jQuery 1.12.4 — Bootstrap 2.3.2's plugins target the jQuery 1.9+ line. *@
+    <script src="~/lib/jquery1/jquery.min.js"></script>
+    <script src="~/lib/bootstrap2/js/bootstrap.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
