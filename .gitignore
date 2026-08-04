@@ -78,6 +78,12 @@ StyleCopReport.xml
 ## The sanitized copies the tests use live in InstaGrabber.Tests/Fixtures/ and ARE committed.
 sample_data/
 
+## BomLens scan bookkeeping, and the BomLens clone itself. Attribution is copied
+## out by hand into NOTICE; the raw scan output (.scanmeta.json, _files.json,
+## _source.json) is never committed. No SBOM document ships with 0.0.1 — see
+## CHANGELOG.md under "Known issues".
+bomlens/
+
 ## Local secrets and environment
 *.local.json
 appsettings.*.local.json
