@@ -21,6 +21,12 @@ jobs:
     name: Generate SBOM and gate on Critical
     runs-on: ubuntu-latest
 
+    env:
+      # Read by scan-sbom.sh in place of its default `:latest`. Pinned as a pair
+      # with the checkout ref below — see the comment there before changing it.
+      # Note the tag forms differ: the image drops the `v`, the git tag keeps it.
+      SBOM_SCANNER_IMAGE: ghcr.io/sktelecom/bomlens:1.10.0
+
     steps:
       # Checked out into src/ rather than the workspace root so that the scan,
       # which reads the *current directory*, sees only this project and not the
@@ -40,10 +46,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sktelecom/bomlens
-          # Pinned deliberately. Bump this by hand, after reading the release
-          # notes and re-running a scan locally — never track a moving ref. The
-          # scanner changing underneath us without the diff showing it is the
-          # precise failure mode that made two earlier scans silently invalid.
+          # Pinned deliberately, and pinned *as a pair* with SBOM_SCANNER_IMAGE
+          # in the job env above. The script and the image it drives are two
+          # halves of one scanner: bumping either alone can change results
+          # silently, and mismatching them is worse than being out of date.
+          #
+          # To bump: change both, re-run the scan locally against the new pair,
+          # confirm .scanmeta.json still reports source mode and the component
+          # list still looks right, and only then commit. Never track a moving
+          # ref — the scanner changing underneath us without the diff showing it
+          # is the precise failure mode that made two earlier scans silently
+          # invalid while still exiting zero.
+          #
+          # The two tags are spelled differently: git tag v1.10.0, image 1.10.0.
           ref: v1.10.0
           path: tools/bomlens
 
@@ -58,7 +73,7 @@ jobs:
         run: dotnet restore src/InstaGrabber.sln
 
       - name: Pull the scanner image
-        run: docker pull ghcr.io/sktelecom/bomlens:latest
+        run: docker pull "$SBOM_SCANNER_IMAGE"
 
       # SOURCE mode is selected by running *inside* the tree with no --target.
       # Passing a directory to --target forces ROOTFS mode, which catalogues
