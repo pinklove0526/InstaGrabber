@@ -1,0 +1,169 @@
+name: SBOM scan
+
+# Generates the dependency SBOM, notice, and vulnerability reports on every
+# change to develop/main, and gates on Critical findings.
+#
+# Nothing is committed back to the repo. The reports are uploaded as a workflow
+# artifact for manual review; promoting anything into NOTICE or sbom/ stays a
+# deliberate human step until we know how noisy the scan is in practice.
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  sbom:
+    name: Generate SBOM and gate on Critical
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checked out into src/ rather than the workspace root so that the scan,
+      # which reads the *current directory*, sees only this project and not the
+      # BomLens clone checked out alongside it.
+      - name: Check out InstaGrabber
+        uses: actions/checkout@v4
+        with:
+          path: src
+
+      # The published image cannot resolve transitive dependencies on its own —
+      # it is python-slim with no language toolchains, and a direct `docker run`
+      # with MODE=SOURCE falls back to syft reading manifests inside the
+      # container, which captures direct dependencies only. scan-sbom.sh is what
+      # routes to the per-language cdxgen images, so we need the script itself.
+      # bomlens/ is gitignored in this repo and is absent from a CI checkout.
+      - name: Check out BomLens (provides scripts/scan-sbom.sh)
+        uses: actions/checkout@v4
+        with:
+          repository: sktelecom/bomlens
+          # Pinned deliberately. Bump this by hand, after reading the release
+          # notes and re-running a scan locally — never track a moving ref. The
+          # scanner changing underneath us without the diff showing it is the
+          # precise failure mode that made two earlier scans silently invalid.
+          ref: v1.10.0
+          path: tools/bomlens
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Without a restore there is no project.assets.json, and the NuGet graph
+      # comes back empty or direct-only.
+      - name: Restore
+        run: dotnet restore src/InstaGrabber.sln
+
+      - name: Pull the scanner image
+        run: docker pull ghcr.io/sktelecom/bomlens:latest
+
+      # SOURCE mode is selected by running *inside* the tree with no --target.
+      # Passing a directory to --target forces ROOTFS mode, which catalogues
+      # bin/ and obj/ and reports our own assemblies as NuGet packages — a scan
+      # that looks successful and reports "0 vulnerabilities" vacuously.
+      # Output goes outside src/ so the artifacts are not themselves scanned.
+      #
+      # Depth is split by trigger: pull requests skip the risk report for speed,
+      # pushes to develop/main produce the full artifact set. The notice and the
+      # Trivy security report are on by default in the CLI either way, so
+      # security.json exists on both paths and the gate below is identical.
+      - name: Generate SBOM, notice and reports
+        working-directory: src
+        env:
+          SCAN_FLAGS: >-
+            ${{ github.event_name == 'pull_request'
+                && '--generate-only --no-report'
+                || '--all --generate-only' }}
+        run: |
+          echo "Scan flags: $SCAN_FLAGS"
+          # SCAN_FLAGS must word-split into separate arguments; do not quote it.
+          # shellcheck disable=SC2086
+          "${GITHUB_WORKSPACE}/tools/bomlens/scripts/scan-sbom.sh" \
+            --project "InstaGrabber" \
+            --version "${GITHUB_SHA}" \
+            $SCAN_FLAGS \
+            --output-dir "${GITHUB_WORKSPACE}/sbom-out"
+
+      - name: Locate the output folder
+        id: out
+        run: |
+          dir=$(find sbom-out -maxdepth 1 -type d -name 'InstaGrabber_*' | head -1)
+          if [ -z "$dir" ]; then
+            echo "::error::scan produced no InstaGrabber_* output folder"
+            exit 1
+          fi
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "Output: $dir"
+
+      # A scan can fail by producing plausible-looking output rather than by
+      # exiting non-zero. Both checks below have caught real invalid scans.
+      - name: Verify the scan is not vacuous
+        run: |
+          dir='${{ steps.out.outputs.dir }}'
+
+          mode=$(jq -r '.source' "$dir/.scanmeta.json")
+          echo "Scan mode: $mode"
+          if [ "$mode" != "current-dir" ]; then
+            echo "::error::scan ran in '$mode' mode, not source mode. A rootfs-dir" \
+                 "scan catalogues build output instead of the dependency graph and" \
+                 "its results are meaningless. Check that --target was not passed."
+            exit 1
+          fi
+
+          bom=$(find "$dir" -name '*_bom.json' | head -1)
+          count=$(jq '.components | length' "$bom")
+          echo "Components: $count"
+          if [ "$count" -lt 5 ]; then
+            echo "::error::only $count component(s) resolved — expected the NuGet" \
+                 "test graph (~19). The restore probably did not reach the scanner."
+            exit 1
+          fi
+
+      # The scanner is report-only and always exits 0, so the gate lives here.
+      - name: Vulnerability gate
+        run: |
+          dir='${{ steps.out.outputs.dir }}'
+          sec=$(find "$dir" -name '*_security.json' | head -1)
+          if [ -z "$sec" ]; then
+            echo "::error::no security report produced; refusing to pass by default"
+            exit 1
+          fi
+
+          # High: annotate, do not fail.
+          jq -r '
+            [.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | .[] |
+            "::warning title=High severity vulnerability::\(.VulnerabilityID) in \(.PkgName) \(.InstalledVersion) — fixed in \(.FixedVersion // "no fix available")"
+          ' "$sec"
+
+          high=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' "$sec")
+          crit=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' "$sec")
+          echo "Critical: $crit   High: $high"
+
+          {
+            echo "### SBOM scan"
+            echo ""
+            echo "- Critical: **$crit**"
+            echo "- High: **$high** (warning only)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$crit" -gt 0 ]; then
+            jq -r '
+              [.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | .[] |
+              "::error title=Critical vulnerability::\(.VulnerabilityID) in \(.PkgName) \(.InstalledVersion) — fixed in \(.FixedVersion // "no fix available")"
+            ' "$sec"
+            echo "$crit critical vulnerability(ies) found"
+            exit 1
+          fi
+
+      # always(): the reports are most useful precisely when the gate failed.
+      - name: Upload SBOM and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom-out/InstaGrabber_*/
+          if-no-files-found: error
+          retention-days: 30
