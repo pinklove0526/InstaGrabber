@@ -6,6 +6,9 @@ actually redistributed, its licence, and the copyright holders to be attributed.
 The full licence text for every component is included in this repository at the
 path shown.
 
+This file covers third-party attribution only. InstaGrabber's own licence is in
+LICENSE (MIT).
+
 Compiled by hand and verified against the licence text and file headers shipped
 with each library. See README.md ("Software Bill of Materials") for what is and
 is not covered by automated scanning.

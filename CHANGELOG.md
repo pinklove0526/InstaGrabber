@@ -32,6 +32,7 @@ Initial Phase 1 release.
   a music sticker and one without — covering parsing, selection and filename rules.
 - **Project documentation.** `CLAUDE.md` and `memory-bank/` notes on scope,
   architecture, decisions and fixture hygiene.
+- **Project licence.** `LICENSE` (MIT).
 - **Third-party attribution.** `NOTICE`, covering the four vendored front-end
   libraries by hand (see README). No machine-generated SBOM document ships in this
   release — see "Known issues".
