@@ -36,4 +36,4 @@ memory-bank/           these notes
 
 Build `dotnet build` · run `dotnet run --project InstaGrabber` · test `dotnet test`.
 
-Not a git repository yet.
+Git repository with a GitHub remote; `main`, `develop`, and feature branches.

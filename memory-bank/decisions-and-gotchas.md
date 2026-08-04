@@ -57,6 +57,44 @@ not a bug.
 - **`UnmappedMemberHandling.Disallow` is on.** A genuinely new key fails the parse. Intentional
   — it surfaces shape drift — but it is the most likely source of the *next* false rejection.
 
+## Vendored front-end libraries: detection is partial, not absent
+
+Bootstrap, jQuery, jQuery Validation and jQuery Unobtrusive Validation live in
+`wwwroot/lib/` as committed files, tracked by no package manager. The older claim that
+scanners "never see them" is **wrong** — a BomLens source scan of the solution found:
+
+| Library | Detected? |
+| --- | --- |
+| jQuery 1.12.4 | yes, as `pkg:npm/jquery@1.12.4` |
+| jQuery Validation 1.19.5 | yes, but misnamed `jquery-validation-plugin` (the real npm package is `jquery-validation`) |
+| Bootstrap 2.3.2 | **no** — missed entirely |
+
+So detection is partial and the names it produces are not trustworthy. `NOTICE` must
+stay hand-written and hand-verified; treat any scanner hit on these as a coincidence,
+never as the source of attribution.
+
+Detection did surface something real, though: jQuery 1.12.4 has five published
+advisories (one High, four Medium XSS). The pin is deliberate — Bootstrap 2 predates
+jQuery 3 — and the advisories are recorded in `CHANGELOG.md` under "Known issues".
+
+## BomLens picks its mode from invocation, not a flag
+
+Passing a directory to `--target` forces rootfs mode, which catalogues `bin/` + `obj/`
+and reports our own assemblies as NuGet packages — a scan that looks like it worked and
+reports "0 vulnerabilities" vacuously. Source mode comes from running **inside** the
+tree with **no `--target`** (`scan-sbom.sh` defaults `MODE=SOURCE`, then overrides it to
+`ROOTFS` for any directory target). Two scans were wasted on this.
+
+Check `.scanmeta.json` after every run: `"source":"current-dir"` is valid,
+`"rootfs-dir"` is not. Also scan a clean copy — the repo now contains a full `bomlens/`
+clone whose `examples/` carry manifests for seven ecosystems, which a root-level source
+scan would sweep in.
+
+Note `docs/reference/ecosystems.md` in the BomLens clone documents the *wrong* .NET
+invocation (`--target examples/dotnet`); `examples/dotnet/README.md` and the script
+itself are correct. The lock file that doc calls required (`packages.lock.json`) is not
+needed — `dotnet restore` plus `project.assets.json` is what the scan actually reads.
+
 ## Known open issues (from review, not yet fixed)
 
 - The 256 MB cap only applies when the CDN sends `Content-Length`; a chunked response streams
