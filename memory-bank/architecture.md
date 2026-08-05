@@ -37,6 +37,18 @@ paste textarea  ->  InstagramJson.Parse  ->  MediaResultsViewModel  ->  Results.
 | `Services/MediaDownloadService.cs` | Fetches from the CDN with the SSRF guards |
 | `Services/MediaFileName.cs` | Derives the filename from the media URL's path |
 | `Views/Grabber/` | `Index` (paste form), `Results` (grid), `DownloadFailed` |
+| `wwwroot/js/story-pagination.js` | Client-side paging of the results grid, 6 items per page |
+
+## Results paging is client-side only
+
+The server renders every parsed item; `story-pagination.js` toggles `display` on the `<li>`
+cards of any `<ul data-ig-paginate>` so only the current page of six shows, and inserts a
+Bootstrap 2 `.pagination` after the list — but only when there are more than six items.
+
+Nothing about this touches the server: no `Session`, no `TempData`, no second request. Two
+consequences worth keeping: items on hidden pages keep their full markup and working download
+tokens, and with JS off everything stays visible with no pager. It reads only direct `<li>`
+children, so a carousel's nested `<ul class="thumbnails">` is never paged or hidden separately.
 
 ## Two things that shape the design
 

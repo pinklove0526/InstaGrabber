@@ -17,12 +17,45 @@ public static class Fixtures
     /// </summary>
     public const string WithoutMusic = "story_video_without_music.json";
 
+    /// <summary>
+    /// Eight video items in one reel — more than the six the results view pages at, so the
+    /// client-side pager has two full pages and a partial third to work with.
+    /// </summary>
+    public const string EightVideos = "story_reel_with_eight_videos.json";
+
+    /// <summary>
+    /// Seven items straddling the same page boundary, mixed photo and video, so both download
+    /// paths and both media-type badges appear on either side of the split.
+    /// </summary>
+    public const string SevenMixed = "story_reel_with_seven_mixed_items.json";
+
     public static string Read(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
 
+    /// <summary>Every capture. Use this for parsing and hygiene checks.</summary>
     public static IEnumerable<object[]> All =>
     [
         [WithMusic],
         [WithoutMusic],
+        [EightVideos],
+        [SevenMixed],
+    ];
+
+    /// <summary>
+    /// Captures whose items are all videos — the subset that assertions about video download
+    /// sources can be applied to wholesale. <see cref="SevenMixed"/> is deliberately absent.
+    /// </summary>
+    public static IEnumerable<object[]> VideoOnly =>
+    [
+        [WithMusic],
+        [WithoutMusic],
+        [EightVideos],
+    ];
+
+    /// <summary>Captures holding more items than one page of the results view.</summary>
+    public static IEnumerable<object[]> MultiPage =>
+    [
+        [EightVideos],
+        [SevenMixed],
     ];
 }

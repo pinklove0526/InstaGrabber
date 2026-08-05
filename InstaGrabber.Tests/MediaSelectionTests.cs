@@ -18,7 +18,7 @@ public class MediaSelectionTests
         MediaResultsViewModel.FromResponse(InstagramJson.Parse(Fixtures.Read(fixture)), Protector);
 
     [Theory]
-    [MemberData(nameof(Fixtures.All), MemberType = typeof(Fixtures))]
+    [MemberData(nameof(Fixtures.VideoOnly), MemberType = typeof(Fixtures))]
     public void Video_downloads_from_video_versions_not_the_cover_frame(string fixture)
     {
         var items = Build(fixture).Reels[0].Items;
@@ -37,7 +37,7 @@ public class MediaSelectionTests
     }
 
     [Theory]
-    [MemberData(nameof(Fixtures.All), MemberType = typeof(Fixtures))]
+    [MemberData(nameof(Fixtures.VideoOnly), MemberType = typeof(Fixtures))]
     public void Video_still_shows_a_cover_frame_preview(string fixture)
     {
         var items = Build(fixture).Reels[0].Items;
