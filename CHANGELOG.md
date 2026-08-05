@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Client-side paging of the results grid.** Reels of more than six items are shown
+  six at a time, with a Bootstrap 2 pagination control below the list. Every item is
+  still rendered server-side in one response — paging only toggles visibility, so
+  nothing extra is fetched, no state is kept, and each item keeps its badge and its
+  working download link whichever page it is on. Reels of six or fewer get no pager.
+- **Multi-item test fixtures.** `story_reel_with_eight_videos.json` (8 videos) and
+  `story_reel_with_seven_mixed_items.json` (7 mixed photos and videos), both derived
+  from the existing sanitized captures, so behaviour past the page boundary is
+  exercised rather than assumed.
+
 ## [0.0.1] — 2026-08-04
 
 Initial Phase 1 release.

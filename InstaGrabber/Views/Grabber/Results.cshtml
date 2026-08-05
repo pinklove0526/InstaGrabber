@@ -46,7 +46,9 @@
         <p class="muted">No items in this reel.</p>
     }
 
-    <ul class="thumbnails">
+    @* Every item renders; story-pagination.js hides all but the current page of six and
+       inserts a pager after this list, but only once there are more than six to page. *@
+    <ul class="thumbnails" data-ig-paginate>
         @foreach (var item in reel.Items)
         {
             <li class="span4">
@@ -193,3 +195,7 @@
 
 <hr />
 <a class="btn btn-primary" asp-controller="Grabber" asp-action="Index">Parse another response</a>
+
+@section Scripts {
+    <script src="~/js/story-pagination.js" asp-append-version="true"></script>
+}
