@@ -1,0 +1,24 @@
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="hero-unit">
+    <h1>InstaGrabber</h1>
+    <p>Welcome. Built on ASP.NET Core 8 with a deliberately vintage Bootstrap 2.3.2 front end.</p>
+</div>
+
+@* Bootstrap 2 grid: 12 columns via .span* inside a .row (not .col-*). *@
+<div class="row">
+    <div class="span4">
+        <h3>Retro by design</h3>
+        <p>Styling comes from Bootstrap 2.3.2, served locally from <code>wwwroot/lib/bootstrap2</code>.</p>
+    </div>
+    <div class="span4">
+        <h3>jQuery 1.12.4</h3>
+        <p>The last of the 1.x line, which Bootstrap 2's JS plugins were written against.</p>
+    </div>
+    <div class="span4">
+        <h3>Next up</h3>
+        <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building web apps with ASP.NET Core</a>.</p>
+    </div>
+</div>

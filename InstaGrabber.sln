@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstaGrabber", "InstaGrabber\InstaGrabber.csproj", "{BC1A5448-F4FE-416D-8D26-FCA485FE47C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstaGrabber.Tests", "InstaGrabber.Tests\InstaGrabber.Tests.csproj", "{B0E686CB-EE2F-4974-A348-0A4E6FFDDBA7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BC1A5448-F4FE-416D-8D26-FCA485FE47C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC1A5448-F4FE-416D-8D26-FCA485FE47C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC1A5448-F4FE-416D-8D26-FCA485FE47C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC1A5448-F4FE-416D-8D26-FCA485FE47C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0E686CB-EE2F-4974-A348-0A4E6FFDDBA7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0E686CB-EE2F-4974-A348-0A4E6FFDDBA7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0E686CB-EE2F-4974-A348-0A4E6FFDDBA7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0E686CB-EE2F-4974-A348-0A4E6FFDDBA7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

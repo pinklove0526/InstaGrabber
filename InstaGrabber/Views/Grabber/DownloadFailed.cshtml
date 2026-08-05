@@ -1,0 +1,15 @@
+@model DownloadFailedViewModel
+@{
+    ViewData["Title"] = "Download failed";
+}
+
+<div class="page-header">
+    <h1>Download failed</h1>
+</div>
+
+<div class="alert alert-error">
+    <h4>@Model.Headline</h4>
+    @Model.Detail
+</div>
+
+<a class="btn btn-primary" asp-controller="Grabber" asp-action="Index">Paste a response again</a>

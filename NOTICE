@@ -1,0 +1,86 @@
+InstaGrabber
+Third-party open source notices
+
+This product includes the software listed below. Each entry records the version
+actually redistributed, its licence, and the copyright holders to be attributed.
+The full licence text for every component is included in this repository at the
+path shown.
+
+This file covers third-party attribution only. InstaGrabber's own licence is in
+LICENSE (MIT).
+
+Compiled by hand and verified against the licence text and file headers shipped
+with each library. See README.md ("Software Bill of Materials") for what is and
+is not covered by automated scanning.
+
+================================================================================
+FRONT-END LIBRARIES REDISTRIBUTED IN THIS REPOSITORY
+
+These are vendored static files served from wwwroot/lib/. They are not tracked
+by any package manager, so they do not appear in a dependency-graph scan and are
+attributed here explicitly.
+
+--------------------------------------------------------------------------------
+Bootstrap 2.3.2
+  Copyright 2012 Twitter, Inc.
+  Licence: Apache License, Version 2.0
+  Homepage: https://getbootstrap.com/2.3.2/
+  Licence text: InstaGrabber/wwwroot/lib/bootstrap2/LICENSE
+
+  Bootstrap 2.x is licensed under Apache-2.0. (The project relicensed to MIT at
+  version 3.0; that does not apply to this version.) Apache-2.0 section 4
+  requires that the licence text be retained on redistribution, which is why the
+  LICENCE file accompanies the library. Bootstrap 2.3.2 ships no NOTICE file of
+  its own, so there is no upstream notice content to propagate.
+
+--------------------------------------------------------------------------------
+jQuery 1.12.4
+  Copyright jQuery Foundation and other contributors, https://jquery.org/
+  Licence: MIT
+  Homepage: https://jquery.com/
+  Licence text: InstaGrabber/wwwroot/lib/jquery1/LICENSE.txt
+
+--------------------------------------------------------------------------------
+jQuery Validation Plugin 1.19.5
+  Copyright (c) 2022 Jörn Zaefferer
+  Licence: MIT
+  Homepage: https://jqueryvalidation.org/
+  Licence text: InstaGrabber/wwwroot/lib/jquery-validation/LICENSE.md
+
+--------------------------------------------------------------------------------
+jQuery Unobtrusive Validation 4.0.0
+  Copyright (c) .NET Foundation and Contributors
+  Licence: MIT
+  Homepage: https://github.com/aspnet/jquery-validation-unobtrusive
+  Licence text: InstaGrabber/wwwroot/lib/jquery-validation-unobtrusive/LICENSE.txt
+
+  Upstream is inconsistent about this one: the LICENSE.txt distributed with the
+  library states MIT, while the header comment inside
+  jquery.validate.unobtrusive.js still carries older Apache-2.0 boilerplate. MIT
+  is recorded here because that is the licence file shipped alongside the code.
+  Both are permissive and this attribution satisfies either.
+
+================================================================================
+RUNTIME PLATFORM
+
+The application targets .NET 8 and references the shared frameworks
+Microsoft.NETCore.App and Microsoft.AspNetCore.App. These are supplied by the
+.NET runtime installed on the host, not redistributed by this repository. .NET is
+Copyright (c) .NET Foundation and Contributors, licensed under MIT.
+
+================================================================================
+NUGET PACKAGES
+
+The web application (InstaGrabber) declares no PackageReference and therefore
+redistributes no NuGet packages.
+
+The test project (InstaGrabber.Tests) is not packaged or shipped
+(IsPackable=false). Its dependencies are build- and test-time only:
+
+  Microsoft.NET.Test.Sdk 18.8.1     — MIT, (c) .NET Foundation and Contributors
+  xunit 2.9.3                       — Apache-2.0, (c) .NET Foundation and Contributors
+  xunit.runner.visualstudio 2.8.2   — Apache-2.0, (c) .NET Foundation and Contributors
+  coverlet.collector 6.0.0          — MIT, (c) Toni Solarin-Sodara
+
+These four resolve to 16 packages transitively. No machine-readable SBOM ships
+with 0.0.1; see CHANGELOG.md under "Known issues".
