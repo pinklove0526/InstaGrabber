@@ -13,6 +13,18 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   still rendered server-side in one response — paging only toggles visibility, so
   nothing extra is fetched, no state is kept, and each item keeps its badge and its
   working download link whichever page it is on. Reels of six or fewer get no pager.
+- **Photos and Videos discovery tabs.** A new `/Discovery` section looks up a public Business
+  or Creator account by username and splits its media into a Photos tab and a Videos tab,
+  each paged straight off the API's before/after cursors using the same Bootstrap 2
+  `.pagination` control the paste flow uses. Multi-photo posts are flattened into their
+  individual items. A post link can be pasted instead to jump to one post; because Instagram
+  offers no way to look a post up by its link, the app walks the account's recent media
+  comparing permalinks and stops after a configurable number of pages with an explicit
+  "not in recent posts" message. Downloads reuse the existing proxy unchanged. **No Stories
+  tab** — see the note below.
+- **Stories are not available through the official API.** No endpoint in Meta's documentation
+  returns another account's stories by username, so the Stories tab is shown as permanently
+  unavailable rather than omitted silently. Stories remain available through the paste flow.
 - **Instagram Graph API client for Business Discovery.** `InstagramGraphClient` looks up
   another account by username and returns one page of its media, requesting `id`,
   `media_type`, `media_url`, `thumbnail_url`, `permalink`, `timestamp` and `caption`.

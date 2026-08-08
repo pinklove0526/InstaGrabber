@@ -1,0 +1,227 @@
+@model MediaTabViewModel
+@{
+    ViewData["Title"] = Model.TabLabel;
+
+    // Tab and pager links all carry the same search, so they are built from one set of values.
+    var route = new Dictionary<string, string?>
+    {
+        ["username"] = Model.Username,
+        ["postUrl"] = Model.PostUrl,
+    };
+}
+
+<div class="page-header">
+    <h1>
+        &#64;@Model.Username
+        <small>
+            @if (Model.FollowersCount is { } followers)
+            {
+                <text>@followers.ToString("N0") followers</text>
+            }
+            @if (Model.MediaCount is { } posts)
+            {
+                <text>&middot; @posts.ToString("N0") posts</text>
+            }
+        </small>
+    </h1>
+</div>
+
+@* Navigational tabs: each is its own addressable page, so these are links rather than
+   data-toggle="tab" panes — the other tab's contents come from a separate API call. *@
+<ul class="nav nav-tabs">
+    <li class="@(Model.Kind == MediaKindFilter.Photos ? "active" : null)">
+        <a asp-controller="Discovery" asp-action="Photos" asp-all-route-data="route">Photos</a>
+    </li>
+    <li class="@(Model.Kind == MediaKindFilter.Videos ? "active" : null)">
+        <a asp-controller="Discovery" asp-action="Videos" asp-all-route-data="route">Videos</a>
+    </li>
+    <li class="disabled">
+        <a href="#" title="No endpoint in Instagram's official API returns another account's stories.">
+            Stories <span class="muted">(not available)</span>
+        </a>
+    </li>
+</ul>
+
+@if (Model.IsSinglePost)
+{
+    <div class="alert alert-info">
+        <strong>One post.</strong> Showing the @Model.TabLabel.ToLowerInvariant() from the link you
+        pasted. <a asp-controller="Discovery" asp-action="@Model.CurrentTabAction"
+                   asp-route-username="@Model.Username">Browse the whole account instead</a>.
+    </div>
+}
+
+@if (Model.UnreadableCarousels > 0)
+{
+    <div class="alert alert-block">
+        <strong>@Model.UnreadableCarousels multi-photo post@(Model.UnreadableCarousels == 1 ? "" : "s") couldn't be opened.</strong>
+        Instagram's API didn't return the individual items inside
+        @(Model.UnreadableCarousels == 1 ? "it" : "them").
+        @if (Model.Kind == MediaKindFilter.Photos)
+        {
+            <text>The cover image is shown instead, marked below.</text>
+        }
+        else
+        {
+            <text>Any videos inside @(Model.UnreadableCarousels == 1 ? "it" : "them") are not listed here.</text>
+        }
+    </div>
+}
+
+@if (!Model.HasItems)
+{
+    <div class="well">
+        <h4>No @Model.TabLabel.ToLowerInvariant() @(Model.IsSinglePost ? "in that post" : "on this page")</h4>
+        @if (Model.IsSinglePost)
+        {
+            <p class="muted">
+                That post has no @Model.TabLabel.ToLowerInvariant().
+                Try the <a asp-controller="Discovery" asp-action="@Model.OtherTabAction"
+                           asp-all-route-data="route">@Model.OtherTabLabel tab</a>.
+            </p>
+        }
+        else if (Model.HasNextPage)
+        {
+            @* Photos and Videos split one media edge, so a page really can hold none of one kind
+               while later pages hold plenty. That is not the same as "this account has none". *@
+            <p class="muted">
+                This page of the account's posts holds no @Model.TabLabel.ToLowerInvariant().
+                There are more posts to look through.
+            </p>
+        }
+        else
+        {
+            <p class="muted">
+                No @Model.TabLabel.ToLowerInvariant() were found for this account.
+                Try the <a asp-controller="Discovery" asp-action="@Model.OtherTabAction"
+                           asp-all-route-data="route">@Model.OtherTabLabel tab</a>.
+            </p>
+        }
+    </div>
+}
+else
+{
+    <ul class="thumbnails">
+        @foreach (var item in Model.Items)
+        {
+            <li class="span4">
+                <div class="thumbnail">
+                    @if (item.PreviewUrl is not null)
+                    {
+                        <img src="@item.PreviewUrl" alt="@item.Id" class="ig-tile" />
+                    }
+                    else
+                    {
+                        <div class="ig-tile ig-thumb-empty">No preview</div>
+                    }
+
+                    <div class="caption">
+                        <h5>
+                            <span class="label @(item.MediaTypeLabel == "Video" ? "label-important" : "label-info")">
+                                @item.MediaTypeLabel
+                            </span>
+                            @if (item.CarouselPosition is { } position)
+                            {
+                                <span class="badge">@position of a set</span>
+                            }
+                            @if (item.IsCarouselCoverOnly)
+                            {
+                                <span class="label label-warning">cover only</span>
+                            }
+                        </h5>
+
+                        <p>
+                            @if (!string.IsNullOrWhiteSpace(item.Caption))
+                            {
+                                @(item.Caption.Length > 140 ? item.Caption[..140] + "…" : item.Caption)
+                            }
+                            else
+                            {
+                                <span class="muted"><em>No caption</em></span>
+                            }
+                        </p>
+
+                        <p class="muted" style="font-size: 11px;">
+                            @if (item.TakenAt is { } takenAt)
+                            {
+                                <text>Posted @takenAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm") UTC<br /></text>
+                            }
+                            @if (item.Permalink is not null)
+                            {
+                                <a href="@item.Permalink" rel="noopener noreferrer nofollow" target="_blank">View on Instagram</a>
+                            }
+                        </p>
+
+                        @if (item.Download is not null)
+                        {
+                            <p>
+                                <a class="btn btn-success" asp-controller="Grabber" asp-action="Download"
+                                   asp-route-token="@item.Download.Token">@item.Download.Label</a>
+                            </p>
+                        }
+                        else
+                        {
+                            @* Instagram omits media_url for copyrighted-flagged content. One item
+                               going missing must not take the page with it. *@
+                            <div class="alert alert-block" style="margin-bottom: 0;">
+                                <strong>No download.</strong> Instagram didn't return a media file
+                                for this post.
+                            </div>
+                        }
+
+                        @if (item.IsCarouselCoverOnly)
+                        {
+                            <p class="muted" style="font-size: 11px; margin-bottom: 0;">
+                                This is a multi-photo post. Only its cover could be read.
+                            </p>
+                        }
+                    </div>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@if (Model.ShowPager)
+{
+    @* Same Bootstrap 2 control the paste-flow grid uses — .pagination wrapping a plain <ul>, with
+       disabled/active on the <li> — but driven by the API's cursors rather than by slicing an
+       array in the browser. There is no numbered list because the edge returns no page count:
+       it hands back opaque before/after cursors and no next/previous links at all. *@
+    <div class="pagination pagination-centered" role="navigation" aria-label="Media pages">
+        <ul>
+            <li class="@(Model.HasPreviousPage ? null : "disabled")">
+                @if (Model.HasPreviousPage)
+                {
+                    <a asp-controller="Discovery" asp-action="@Model.CurrentTabAction"
+                       asp-route-username="@Model.Username"
+                       asp-route-before="@Model.PreviousCursor"
+                       asp-route-page="@(Model.PageNumber - 1)"
+                       aria-label="Previous page">&laquo;</a>
+                }
+                else
+                {
+                    <a href="#" aria-label="Previous page">&laquo;</a>
+                }
+            </li>
+            <li class="active"><a href="#">Page @Model.PageNumber</a></li>
+            <li class="@(Model.HasNextPage ? null : "disabled")">
+                @if (Model.HasNextPage)
+                {
+                    <a asp-controller="Discovery" asp-action="@Model.CurrentTabAction"
+                       asp-route-username="@Model.Username"
+                       asp-route-after="@Model.NextCursor"
+                       asp-route-page="@(Model.PageNumber + 1)"
+                       aria-label="Next page">&raquo;</a>
+                }
+                else
+                {
+                    <a href="#" aria-label="Next page">&raquo;</a>
+                }
+            </li>
+        </ul>
+    </div>
+}
+
+<hr />
+<a class="btn btn-primary" asp-controller="Discovery" asp-action="Index">Look up another account</a>

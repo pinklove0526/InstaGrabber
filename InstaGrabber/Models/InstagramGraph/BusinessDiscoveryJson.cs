@@ -100,22 +100,7 @@ public static class BusinessDiscoveryJson
         var items = new List<BusinessDiscoveryMedia>();
         foreach (var node in edge.Data ?? [])
         {
-            if (string.IsNullOrEmpty(node.Id))
-            {
-                throw new InstagramGraphFormatException(
-                    "Unexpected format: a media node came back without an 'id', which was explicitly requested.");
-            }
-
-            items.Add(new BusinessDiscoveryMedia
-            {
-                Id = node.Id,
-                MediaType = ReadMediaType(node.MediaType),
-                MediaUrl = NullIfBlank(node.MediaUrl),
-                ThumbnailUrl = NullIfBlank(node.ThumbnailUrl),
-                Permalink = NullIfBlank(node.Permalink),
-                TakenAt = ReadTimestamp(node.Timestamp),
-                Caption = NullIfBlank(node.Caption),
-            });
+            items.Add(ReadNode(node));
         }
 
         return new MediaPage
@@ -123,6 +108,38 @@ public static class BusinessDiscoveryJson
             Items = items,
             BeforeCursor = NullIfBlank(edge.Paging?.Cursors?.Before),
             AfterCursor = NullIfBlank(edge.Paging?.Cursors?.After),
+        };
+    }
+
+    /// <summary>
+    /// Reads one media node, and its carousel children when the nested expansion returned any.
+    /// Children carry the same field names, so they read through the same path — but a child is
+    /// never asked for its own children, and the wire model has no room to nest further.
+    /// </summary>
+    private static BusinessDiscoveryMedia ReadNode(MediaNode node)
+    {
+        if (string.IsNullOrEmpty(node.Id))
+        {
+            throw new InstagramGraphFormatException(
+                "Unexpected format: a media node came back without an 'id', which was explicitly requested.");
+        }
+
+        var children = new List<BusinessDiscoveryMedia>();
+        foreach (var child in node.Children?.Data ?? [])
+        {
+            children.Add(ReadNode(child));
+        }
+
+        return new BusinessDiscoveryMedia
+        {
+            Id = node.Id,
+            MediaType = ReadMediaType(node.MediaType),
+            MediaUrl = NullIfBlank(node.MediaUrl),
+            ThumbnailUrl = NullIfBlank(node.ThumbnailUrl),
+            Permalink = NullIfBlank(node.Permalink),
+            TakenAt = ReadTimestamp(node.Timestamp),
+            Caption = NullIfBlank(node.Caption),
+            Children = children,
         };
     }
 
@@ -228,6 +245,15 @@ public static class BusinessDiscoveryJson
 
         [JsonPropertyName("caption")]
         public string? Caption { get; set; }
+
+        [JsonPropertyName("children")]
+        public ChildrenNode? Children { get; set; }
+    }
+
+    private sealed class ChildrenNode
+    {
+        [JsonPropertyName("data")]
+        public List<MediaNode>? Data { get; set; }
     }
 
     private sealed class PagingNode

@@ -36,6 +36,11 @@
                             <li class="@ActiveIf("Grabber", "Index")">
                                 <a asp-area="" asp-controller="Grabber" asp-action="Index">Grab media</a>
                             </li>
+                            @* Every action on Discovery is part of the same feature, so this one
+                               matches on the controller rather than on the controller/action pair. *@
+                            <li class="@(currentController == "Discovery" ? "active" : null)">
+                                <a asp-area="" asp-controller="Discovery" asp-action="Index">Discover</a>
+                            </li>
                             <li class="@ActiveIf("Home", "Privacy")">
                                 <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                             </li>

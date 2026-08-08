@@ -133,6 +133,134 @@ public class InstagramGraphClientTests
         Assert.DoesNotContain("access_token", request.Uri.ToString());
     }
 
+    // ---- Carousel children -------------------------------------------------------------
+
+    /// <summary>
+    /// The Phase 2 spec flags this nesting depth as undocumented, so it is attempted rather than
+    /// assumed — the request goes out asking for children every time.
+    /// </summary>
+    [Fact]
+    public async Task Asks_for_carousel_children_by_default()
+    {
+        var handler = StubHttpMessageHandler.ReturningOk(OnePost);
+
+        await Client(handler).GetBusinessDiscoveryAsync("target");
+
+        Assert.Contains("children{id,media_type,media_url,thumbnail_url,permalink,timestamp}",
+            handler.LastRequest!.Fields);
+    }
+
+    [Fact]
+    public async Task Reads_carousel_children_when_the_expansion_comes_back()
+    {
+        const string album = """
+        {
+          "business_discovery": {
+            "media": {
+              "data": [
+                {
+                  "id": "17000000000000010",
+                  "media_type": "CAROUSEL_ALBUM",
+                  "media_url": "https://scrubbed.cdninstagram.com/img/cover.jpg",
+                  "children": {
+                    "data": [
+                      { "id": "17000000000000011", "media_type": "IMAGE", "media_url": "https://scrubbed.cdninstagram.com/img/a.jpg" },
+                      { "id": "17000000000000012", "media_type": "VIDEO", "media_url": "https://scrubbed.cdninstagram.com/vid/b.mp4" }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+        """;
+
+        var result = await Client(StubHttpMessageHandler.ReturningOk(album)).GetBusinessDiscoveryAsync("target");
+
+        var item = Assert.Single(result.Profile!.Media.Items);
+        Assert.Equal(GraphMediaType.CarouselAlbum, item.MediaType);
+        Assert.Equal(2, item.Children.Count);
+        Assert.Equal(GraphMediaType.Image, item.Children[0].MediaType);
+        Assert.Equal(GraphMediaType.Video, item.Children[1].MediaType);
+    }
+
+    /// <summary>
+    /// If the API rejects the expansion, losing carousel members is a degraded result rather than
+    /// a failed one — the request goes again without children instead of erroring out.
+    /// </summary>
+    [Fact]
+    public async Task Retries_without_children_when_the_expansion_is_rejected()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+            request.Fields!.Contains("children")
+                ? new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent(
+                        """{ "error": { "message": "Invalid parameter", "type": "OAuthException", "code": 100 } }"""),
+                }
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(OnePost) });
+
+        var result = await Client(handler).GetBusinessDiscoveryAsync("target");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Contains("children", handler.Requests[0].Fields);
+        Assert.DoesNotContain("children", handler.Requests[1].Fields);
+        Assert.All(result.Profile!.Media.Items, item => Assert.Empty(item.Children));
+    }
+
+    /// <summary>
+    /// Only a rejected expansion is worth a second request. An unavailable target or a dead
+    /// network must not silently cost two calls.
+    /// </summary>
+    [Theory]
+    [InlineData(110)]
+    [InlineData(190)]
+    [InlineData(4)]
+    public async Task Does_not_retry_for_failures_that_have_nothing_to_do_with_children(int code)
+    {
+        var handler = ErrorHandler(HttpStatusCode.BadRequest, code);
+
+        await Client(handler).GetBusinessDiscoveryAsync("target");
+
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Does_not_retry_a_network_failure()
+    {
+        var handler = StubHttpMessageHandler.Throwing(new HttpRequestException("no route to host"));
+
+        var result = await Client(handler).GetBusinessDiscoveryAsync("target");
+
+        Assert.Equal(BusinessDiscoveryError.Unreachable, result.Error);
+        Assert.Single(handler.Requests);
+    }
+
+    /// <summary>A second rejection is the end of it; the client must not loop.</summary>
+    [Fact]
+    public async Task Gives_up_after_one_retry()
+    {
+        var handler = ErrorHandler(HttpStatusCode.BadRequest, 100);
+
+        var result = await Client(handler).GetBusinessDiscoveryAsync("target");
+
+        Assert.Equal(BusinessDiscoveryError.ApiFailure, result.Error);
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Children_can_be_left_out_of_the_request_entirely()
+    {
+        var handler = StubHttpMessageHandler.ReturningOk(OnePost);
+
+        await Client(handler).GetBusinessDiscoveryAsync(
+            "target", new MediaPageRequest { IncludeChildren = false });
+
+        Assert.DoesNotContain("children", handler.LastRequest!.Fields);
+        Assert.Single(handler.Requests);
+    }
+
     // ---- Cursor paging -----------------------------------------------------------------
 
     [Fact]

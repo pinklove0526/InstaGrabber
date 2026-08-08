@@ -68,6 +68,13 @@ public sealed record MediaPageRequest
 
     /// <summary>Opaque cursor from a previous <see cref="MediaPage.BeforeCursor"/>.</summary>
     public string? Before { get; init; }
+
+    /// <summary>
+    /// Ask for carousel members via the nested <c>children</c> expansion. On by default; the
+    /// client drops it and retries by itself if the API rejects the expansion, so callers do not
+    /// have to decide. Set false only to skip that attempt entirely.
+    /// </summary>
+    public bool IncludeChildren { get; init; } = true;
 }
 
 public interface IInstagramGraphClient
@@ -144,7 +151,28 @@ public sealed class InstagramGraphClient : IInstagramGraphClient
             return BusinessDiscoveryResult.Fail(BusinessDiscoveryError.InvalidRequest);
         }
 
-        var uri = BuildUri(username, request);
+        var result = await SendAsync(username, request, request.IncludeChildren, cancellationToken);
+
+        // The nested children expansion is not documented at this depth — the Phase 2 spec flags
+        // it as needs-verification, and Meta has historically rejected `children` when it appears
+        // in a field list that also matches non-album media. A rejected expansion comes back as a
+        // plain "invalid parameter", which is exactly ApiFailure, so that is the one case worth
+        // retrying without it: losing carousel members is a degraded result, not a failed one.
+        // Nothing else is retried, so a genuine API fault still costs one request, not two.
+        if (request.IncludeChildren && result.Error == BusinessDiscoveryError.ApiFailure)
+        {
+            _logger.LogInformation(
+                "Retrying Business Discovery without the nested children expansion; carousel members will be unavailable.");
+            return await SendAsync(username, request, includeChildren: false, cancellationToken);
+        }
+
+        return result;
+    }
+
+    private async Task<BusinessDiscoveryResult> SendAsync(
+        string username, MediaPageRequest request, bool includeChildren, CancellationToken cancellationToken)
+    {
+        var uri = BuildUri(username, request, includeChildren);
 
         HttpStatusCode status;
         string body;
@@ -196,7 +224,7 @@ public sealed class InstagramGraphClient : IInstagramGraphClient
     /// Builds the nested field expansion. There is no permalink-to-media lookup on this edge, so
     /// paging the media edge is the only way through it — hence cursors rather than an offset.
     /// </summary>
-    private Uri BuildUri(string username, MediaPageRequest page)
+    private Uri BuildUri(string username, MediaPageRequest page, bool includeChildren)
     {
         var limit = Math.Clamp(page.Limit, 1, MediaPageRequest.MaxLimit);
 
@@ -210,7 +238,13 @@ public sealed class InstagramGraphClient : IInstagramGraphClient
             media += $".before({page.Before})";
         }
 
-        media += "{id,media_type,media_url,thumbnail_url,permalink,timestamp,caption}";
+        // Children carry no caption of their own and cannot nest further, so the child list is
+        // the parent's minus caption.
+        var children = includeChildren
+            ? ",children{id,media_type,media_url,thumbnail_url,permalink,timestamp}"
+            : string.Empty;
+
+        media += $"{{id,media_type,media_url,thumbnail_url,permalink,timestamp,caption{children}}}";
 
         var fields = $"business_discovery.username({username}){{followers_count,media_count,{media}}}";
 

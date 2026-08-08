@@ -37,6 +37,8 @@ builder.Services.AddHttpClient<IInstagramGraphClient, InstagramGraphClient>(clie
     client.DefaultRequestHeaders.UserAgent.ParseAdd("InstaGrabber/1.0 (+local)");
 });
 
+builder.Services.AddScoped<MediaDiscoveryService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

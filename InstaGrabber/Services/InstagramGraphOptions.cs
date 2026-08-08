@@ -28,6 +28,22 @@ public sealed class InstagramGraphOptions
     public string AccessToken { get; set; } = string.Empty;
 
     /// <summary>
+    /// Items per request, which is also one page of the results grid — the discovery tabs page
+    /// straight off the API's cursors, so one API page is one UI page.
+    /// </summary>
+    public int MediaPageSize { get; set; } = MediaPageRequest.DefaultLimit;
+
+    /// <summary>
+    /// How many pages a post-link search will walk before giving up.
+    ///
+    /// Business Discovery has no permalink-to-media lookup, so finding a specific post means
+    /// paging the account's media edge and comparing <c>permalink</c> — O(account media count)
+    /// in the worst case. This bound is what stops that from running away; past it the search
+    /// reports "not found in recent posts" rather than continuing.
+    /// </summary>
+    public int MaxPostSearchPages { get; set; } = 10;
+
+    /// <summary>
     /// False until both values are supplied. The client checks this before building a request so
     /// an unconfigured app fails with a clear reason instead of a 400 from Meta.
     /// </summary>

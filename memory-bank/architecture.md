@@ -41,6 +41,11 @@ paste textarea  ->  InstagramJson.Parse  ->  MediaResultsViewModel  ->  Results.
 | `Models/InstagramGraph/` | Business Discovery DTOs + `BusinessDiscoveryJson` (permissive reader) |
 | `Services/InstagramGraphClient.cs` | Phase 2 Graph API client, plus its result/error types |
 | `Services/InstagramGraphOptions.cs` | IG User ID + access token, bound from `InstagramGraph:*` |
+| `Services/InstagramPostUrl.cs` | Shortcode out of a post link; both sides of the permalink match |
+| `Services/MediaDiscoveryService.cs` | Tab filtering, carousel flattening, bounded post-link search |
+| `Controllers/DiscoveryController.cs` | `Index` (form), `Photos` / `Videos` (tabs) |
+| `Models/MediaTabViewModel.cs` | Tab projection: previews, download tokens, cursor pager |
+| `Views/Discovery/` | `Index` (lookup form), `Media` (tabs + grid + pager) |
 
 ## Results paging is client-side only
 
@@ -75,6 +80,35 @@ Four things that are easy to get wrong here:
   a 200 with no `business_discovery` object maps to the *same* value as an explicit code 110.
 - **Username and cursor are validated before use.** They are interpolated into a field-expansion
   DSL where a stray `)` or `,` is not bad input but a *different query*.
+
+## Phase 2: the Photos and Videos tabs
+
+`DiscoveryController` (`/Discovery`) → `MediaDiscoveryService` → `MediaTabViewModel` →
+`Views/Discovery/Media.cshtml`. **There is no Stories tab and there is not going to be one** —
+no endpoint in Meta's official documentation returns another account's stories by username. The
+tab strip shows Stories as permanently `disabled` so the absence is explained rather than silent.
+
+The lookup form submits with **GET**, unlike the paste form. Every result page has to be
+addressable because the pager navigates by cursor in the query string.
+
+- **Both tabs read the same media edge and split it.** A page can therefore hold none of one kind
+  while later pages hold plenty, so the empty state distinguishes "none on this page, there are
+  more" from "none at all". Do not read an empty tab as an empty account.
+- **The pager reuses the Bootstrap 2 `.pagination` markup and nothing else.** No numbered pages:
+  the edge returns no page count. `«` / `»` carry a `before` / `after` cursor plus a display-only
+  `page` ordinal. "Previous" keys off that ordinal because the edge hands back a before-cursor on
+  page one too; "next" keys off a full page, because it hands back an after-cursor on the last
+  page too.
+- **Carousels are flattened into their members**, which is where the undocumented nested
+  `children` expansion lands. When it is rejected the client retries without it, and an unopened
+  album degrades to a cover image on Photos (flagged "cover only") and to nothing on Videos, with
+  the count surfaced either way. Verified end-to-end against a stub that rejects the expansion.
+- **Post-link mode needs a username too.** There is no permalink lookup, so finding one post means
+  walking the media edge and matching shortcodes, bounded by `MaxPostSearchPages` (default 10).
+  Only `instagram.com/{username}/p/{code}` links carry the account; a bare `/p/{code}` does not.
+  Running out of pages is its own error, never "the account has nothing".
+- **Downloads reuse `Grabber/Download` unchanged.** Business Discovery `media_url` values sit on
+  the same CDN hosts, so they pass the existing allowlist and stream through the same proxy.
 
 Credentials live in `InstagramGraph:IgUserId` / `InstagramGraph:AccessToken`. `appsettings.json`
 carries the empty shape only; real values come from user-secrets in development or

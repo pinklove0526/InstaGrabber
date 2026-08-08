@@ -26,6 +26,20 @@ body {
   line-height: 320px;
 }
 
+/* Feed media is square, portrait or landscape rather than the 9:16 of a story, so the
+   discovery tabs get their own square tile instead of reusing the taller .ig-thumb. */
+.ig-tile {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Shares .ig-thumb-empty's colours; only the height has to match its own tile. */
+.ig-tile.ig-thumb-empty {
+  line-height: 260px;
+}
+
 .ig-avatar {
   width: 48px;
   height: 48px;

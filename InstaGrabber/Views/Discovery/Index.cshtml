@@ -1,0 +1,78 @@
+@model DiscoverySearchViewModel
+@{
+    ViewData["Title"] = "Discover";
+}
+
+<div class="page-header">
+    <h1>Discover <small>Phase 2 &mdash; via Instagram's official API</small></h1>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-error">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <h4>Couldn't look that up</h4>
+        @Model.ErrorMessage
+        @if (!string.IsNullOrEmpty(Model.ErrorDetail))
+        {
+            <p style="margin-top: 9px;">
+                <a class="btn btn-mini" data-toggle="collapse" href="#errorDetail">Show details</a>
+            </p>
+            <div id="errorDetail" class="collapse">
+                <p style="margin: 0;">@Model.ErrorDetail</p>
+            </div>
+        }
+    </div>
+}
+
+<div class="alert alert-info">
+    <strong>This works for public Business or Creator accounts only.</strong> Instagram's
+    Business Discovery API can't see ordinary personal accounts, whether they are public or
+    private &mdash; that isn't a permissions problem, it's the only thing the API offers.
+</div>
+
+@* GET, not POST: every result page has to be addressable so the cursor pager can link to it. *@
+<form asp-controller="Discovery" asp-action="Photos" method="get" class="well">
+    <div class="row">
+        <div class="span5">
+            <label for="username"><strong>Account username</strong></label>
+            <div class="input-prepend">
+                <span class="add-on">&#64;</span>
+                <input type="text" id="username" name="username" value="@Model.Username"
+                       class="span4" placeholder="business.account" spellcheck="false" />
+            </div>
+            <p class="help-block">Without the &#64;. Letters, numbers, dots and underscores.</p>
+        </div>
+        <div class="span5">
+            <label for="postUrl"><strong>Post link <span class="muted">(optional)</span></strong></label>
+            <input type="text" id="postUrl" name="postUrl" value="@Model.PostUrl"
+                   class="span5" placeholder="https://www.instagram.com/p/XXXXXXXXX/" spellcheck="false" />
+            <p class="help-block">
+                Leave empty to browse the whole account. With a link, only that one post is shown.
+            </p>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-large">Find photos</button>
+    <button type="submit" class="btn btn-large" formaction="@Url.Action("Videos")">Find videos</button>
+    <a class="btn btn-large" asp-controller="Home" asp-action="Index">Cancel</a>
+</form>
+
+<div class="row">
+    <div class="span6">
+        <h4>How the post link search works</h4>
+        <p class="muted">
+            Instagram's API has no way to look a post up by its link, so the app pages through the
+            account's recent media and compares each post's own link until it matches. Older posts
+            fall outside that search and can't be reached.
+        </p>
+    </div>
+    <div class="span6">
+        <h4>Looking for stories?</h4>
+        <p class="muted">
+            Stories aren't available here. No endpoint in Instagram's official API returns another
+            account's stories by username, so they stay on the
+            <a asp-controller="Grabber" asp-action="Index">paste flow</a>.
+        </p>
+    </div>
+</div>

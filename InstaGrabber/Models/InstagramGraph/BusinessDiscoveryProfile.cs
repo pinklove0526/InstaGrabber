@@ -64,6 +64,14 @@ public sealed record BusinessDiscoveryMedia
 
     public required string? Caption { get; init; }
 
+    /// <summary>
+    /// Members of a <see cref="GraphMediaType.CarouselAlbum"/>, when the nested expansion
+    /// returned them. Empty for everything else — and also empty for an album whose children
+    /// could not be read, which is a state the caller has to handle rather than assume away.
+    /// See <c>InstagramGraphClient</c> for why that is not treated as a failure.
+    /// </summary>
+    public required IReadOnlyList<BusinessDiscoveryMedia> Children { get; init; }
+
     /// <summary>True when there is no URL to show or download for this item.</summary>
     public bool IsUnavailable => MediaUrl is null;
 }
