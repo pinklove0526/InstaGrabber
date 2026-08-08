@@ -22,6 +22,21 @@ builder.Services.AddHttpClient<MediaDownloadService>(client =>
         UseCookies = false,
     });
 
+// Business Discovery: the app's own Graph API credentials. Both values are secrets as far as
+// source control is concerned — appsettings.json carries the empty shape only, and real values
+// come from user-secrets in development or InstagramGraph__* environment variables elsewhere.
+builder.Services.Configure<InstagramGraphOptions>(
+    builder.Configuration.GetSection(InstagramGraphOptions.SectionName));
+
+// Separate from the MediaDownloadService client on purpose: this one talks to a single
+// configured API host and must not inherit the download proxy's SSRF handler configuration,
+// nor its CDN host allowlist.
+builder.Services.AddHttpClient<IInstagramGraphClient, InstagramGraphClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("InstaGrabber/1.0 (+local)");
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

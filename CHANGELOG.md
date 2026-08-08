@@ -13,6 +13,15 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   still rendered server-side in one response — paging only toggles visibility, so
   nothing extra is fetched, no state is kept, and each item keeps its badge and its
   working download link whichever page it is on. Reels of six or fewer get no pager.
+- **Instagram Graph API client for Business Discovery.** `InstagramGraphClient` looks up
+  another account by username and returns one page of its media, requesting `id`,
+  `media_type`, `media_url`, `thumbnail_url`, `permalink`, `timestamp` and `caption`.
+  Paging is by raw cursor because this edge returns `paging.cursors` without the
+  `next`/`previous` links other Graph edges provide. Failures are classified so the UI can
+  show one indistinguishable "not available" message for a target that does not exist, is
+  private, or is not a Professional account, while an expired token, throttling and network
+  faults stay separate. Nothing is wired into the UI yet, and it is entirely separate from
+  the paste flow and the download proxy.
 - **Multi-item test fixtures.** `story_reel_with_eight_videos.json` (8 videos) and
   `story_reel_with_seven_mixed_items.json` (7 mixed photos and videos), both derived
   from the existing sanitized captures, so behaviour past the page boundary is

@@ -38,6 +38,9 @@ paste textarea  ->  InstagramJson.Parse  ->  MediaResultsViewModel  ->  Results.
 | `Services/MediaFileName.cs` | Derives the filename from the media URL's path |
 | `Views/Grabber/` | `Index` (paste form), `Results` (grid), `DownloadFailed` |
 | `wwwroot/js/story-pagination.js` | Client-side paging of the results grid, 6 items per page |
+| `Models/InstagramGraph/` | Business Discovery DTOs + `BusinessDiscoveryJson` (permissive reader) |
+| `Services/InstagramGraphClient.cs` | Phase 2 Graph API client, plus its result/error types |
+| `Services/InstagramGraphOptions.cs` | IG User ID + access token, bound from `InstagramGraph:*` |
 
 ## Results paging is client-side only
 
@@ -49,6 +52,34 @@ Nothing about this touches the server: no `Session`, no `TempData`, no second re
 consequences worth keeping: items on hidden pages keep their full markup and working download
 tokens, and with JS off everything stays visible with no pager. It reads only direct `<li>`
 children, so a carousel's nested `<ul class="thumbnails">` is never paged or hidden separately.
+
+## Phase 2: the Business Discovery client (separate from everything above)
+
+`InstagramGraphClient` reads *other* accounts through Business Discovery, the only Graph edge
+that takes a username. It shares nothing with the paste flow and nothing with the download
+proxy — in particular, **`graph.facebook.com` is not on `MediaDownloadService`'s host allowlist
+and must never be added to it**; the two clients are registered separately in `Program.cs` so
+the download proxy's SSRF handler config is not inherited.
+
+Four things that are easy to get wrong here:
+
+- **Cursors are handed back raw.** This nested `media` edge returns `paging.cursors` but no
+  `next`/`previous` URLs, so there is no link to follow — the caller builds the next request
+  from `MediaPage.Before/AfterCursor`. A non-null cursor is *not* a promise of more results.
+- **The reader is permissive, unlike `InstagramJson`.** Meta adds fields to live API versions,
+  and documented fields are legitimately per-item absent (`media_url` on copyrighted content,
+  `thumbnail_url` on non-videos, `caption`). Unknown keys are skipped. The one strict rule: a
+  media node must carry `id`.
+- **`TargetUnavailable` deliberately collapses three cases** — no such account, private, and
+  not a Professional account. Keeping them distinguishable would leak account information, so
+  a 200 with no `business_discovery` object maps to the *same* value as an explicit code 110.
+- **Username and cursor are validated before use.** They are interpolated into a field-expansion
+  DSL where a stray `)` or `,` is not bad input but a *different query*.
+
+Credentials live in `InstagramGraph:IgUserId` / `InstagramGraph:AccessToken`. `appsettings.json`
+carries the empty shape only; real values come from user-secrets in development or
+`InstagramGraph__*` environment variables elsewhere. The token is sent as a bearer header, never
+as an `access_token` query parameter, so it cannot end up in a URL that gets logged.
 
 ## Two things that shape the design
 
