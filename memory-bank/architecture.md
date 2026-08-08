@@ -75,9 +75,20 @@ Four things that are easy to get wrong here:
   and documented fields are legitimately per-item absent (`media_url` on copyrighted content,
   `thumbnail_url` on non-videos, `caption`). Unknown keys are skipped. The one strict rule: a
   media node must carry `id`.
-- **`TargetUnavailable` deliberately collapses three cases** — no such account, private, and
-  not a Professional account. Keeping them distinguishable would leak account information, so
-  a 200 with no `business_discovery` object maps to the *same* value as an explicit code 110.
+- **`TargetUnavailable` deliberately collapses every unreadable-target case** — no such account,
+  private, not a Professional account. Keeping them distinguishable would leak account
+  information, so a 200 with no `business_discovery` object, an explicit code 110, code 100 with
+  an Instagram subcode, and **any other 4xx that is not clearly about the token or throttling**
+  all map to the same value. The mapping errs towards `TargetUnavailable` on purpose: guessing
+  wrong that way costs nothing a user can see, whereas leaving one case on a different error
+  would give it away through the status code and message. Only 5xx stays `ApiFailure`.
+  The cost is that a fault in this app's *own* field list also reads as "unavailable" — the
+  `QueryRejected` flag and a Warning log line are what keep that diagnosable, so check the log
+  before believing an account is unreadable.
+- **The children retry keys off `QueryRejected`, not off the reported error.** "Invalid
+  parameter" and "invalid user id" both reach the user as `TargetUnavailable`, but only the
+  first is worth a second request. Coupling the retry to the user-facing error would double
+  every genuinely unavailable lookup.
 - **Username and cursor are validated before use.** They are interpolated into a field-expansion
   DSL where a stray `)` or `,` is not bad input but a *different query*.
 

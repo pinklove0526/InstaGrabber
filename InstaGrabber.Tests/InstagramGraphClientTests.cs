@@ -245,8 +245,28 @@ public class InstagramGraphClientTests
 
         var result = await Client(handler).GetBusinessDiscoveryAsync("target");
 
-        Assert.Equal(BusinessDiscoveryError.ApiFailure, result.Error);
+        Assert.False(result.Succeeded);
         Assert.Equal(2, handler.Requests.Count);
+    }
+
+    /// <summary>
+    /// The retry keys off its own signal, not off the reported error. "Invalid parameter" and
+    /// "invalid user id" both reach the user as an unavailable target, but only the first is
+    /// worth a second request — coupling them would double every genuinely unavailable lookup.
+    /// </summary>
+    [Fact]
+    public async Task An_unavailable_target_is_not_retried_even_though_it_reports_the_same_error()
+    {
+        var invalidUser = ErrorHandler(HttpStatusCode.BadRequest, 110);
+        var notProfessional = ErrorHandler(HttpStatusCode.BadRequest, 100, 2207013);
+
+        var first = await Client(invalidUser).GetBusinessDiscoveryAsync("target");
+        var second = await Client(notProfessional).GetBusinessDiscoveryAsync("target");
+
+        Assert.Equal(BusinessDiscoveryError.TargetUnavailable, first.Error);
+        Assert.Equal(BusinessDiscoveryError.TargetUnavailable, second.Error);
+        Assert.Single(invalidUser.Requests);
+        Assert.Single(notProfessional.Requests);
     }
 
     [Fact]
@@ -457,14 +477,48 @@ public class InstagramGraphClientTests
     }
 
     /// <summary>
-    /// A bare code 100 is "invalid parameter", which most likely means this app sent a bad field
-    /// expansion. That is a fault here, not an unavailable target, so it must not be laundered
-    /// into the target-unavailable message.
+    /// A bare code 100 is "invalid parameter", which is ambiguous: it is what a rejected field
+    /// expansion looks like *and* a plausible answer for an unreadable target. It gets one retry
+    /// without the undocumented part, and if that fails too it is reported as an unavailable
+    /// target — anything else would let a user tell this case apart from a private account.
     /// </summary>
     [Fact]
-    public async Task Invalid_parameter_without_an_instagram_subcode_is_a_generic_failure()
+    public async Task Invalid_parameter_without_a_subcode_ends_up_as_an_unavailable_target()
     {
-        var result = await Client(ErrorHandler(HttpStatusCode.BadRequest, 100)).GetBusinessDiscoveryAsync("target");
+        var handler = ErrorHandler(HttpStatusCode.BadRequest, 100);
+
+        var result = await Client(handler).GetBusinessDiscoveryAsync("target");
+
+        Assert.Equal(BusinessDiscoveryError.TargetUnavailable, result.Error);
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    /// <summary>
+    /// Every 4xx this app cannot attribute to its own token or to throttling is about the one
+    /// thing it asked for, so it reads as an unreadable target rather than as a distinct error a
+    /// user could learn something from.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Gone)]
+    public async Task An_unclassifiable_client_error_reads_as_an_unavailable_target(HttpStatusCode status)
+    {
+        var result = await Client(StubHttpMessageHandler.Returning(status, "<html>nope</html>"))
+            .GetBusinessDiscoveryAsync("target");
+
+        Assert.Equal(BusinessDiscoveryError.TargetUnavailable, result.Error);
+    }
+
+    /// <summary>Meta's own server faults are not the target's doing, so they stay generic.</summary>
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task A_server_side_fault_stays_a_generic_api_failure(HttpStatusCode status)
+    {
+        var result = await Client(StubHttpMessageHandler.Returning(status, "{}"))
+            .GetBusinessDiscoveryAsync("target");
 
         Assert.Equal(BusinessDiscoveryError.ApiFailure, result.Error);
     }

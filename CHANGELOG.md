@@ -22,6 +22,14 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   comparing permalinks and stops after a configurable number of pages with an explicit
   "not in recent posts" message. Downloads reuse the existing proxy unchanged. **No Stories
   tab** — see the note below.
+- **Discovery error states that don't leak account information.** An account that doesn't
+  exist, one that's private, and one that isn't a Professional account all produce the same
+  status code and the same wording, so the response can't be used to tell them apart; any
+  Graph 4xx that isn't clearly about the app's own token or rate limiting is reported the
+  same way. Separately, an account that simply has no media of the requested type is an
+  empty page rather than an error, and an individual post whose `media_url` Instagram
+  withheld for copyright is shown as an unavailable item without affecting the rest of
+  the page.
 - **Stories are not available through the official API.** No endpoint in Meta's documentation
   returns another account's stories by username, so the Stories tab is shown as permanently
   unavailable rather than omitted silently. Stories remain available through the paste flow.

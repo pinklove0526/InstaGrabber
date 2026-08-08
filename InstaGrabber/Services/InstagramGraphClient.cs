@@ -151,25 +151,43 @@ public sealed class InstagramGraphClient : IInstagramGraphClient
             return BusinessDiscoveryResult.Fail(BusinessDiscoveryError.InvalidRequest);
         }
 
-        var result = await SendAsync(username, request, request.IncludeChildren, cancellationToken);
+        var (result, queryRejected) = await SendAsync(
+            username, request, request.IncludeChildren, cancellationToken);
 
         // The nested children expansion is not documented at this depth — the Phase 2 spec flags
         // it as needs-verification, and Meta has historically rejected `children` when it appears
-        // in a field list that also matches non-album media. A rejected expansion comes back as a
-        // plain "invalid parameter", which is exactly ApiFailure, so that is the one case worth
-        // retrying without it: losing carousel members is a degraded result, not a failed one.
-        // Nothing else is retried, so a genuine API fault still costs one request, not two.
-        if (request.IncludeChildren && result.Error == BusinessDiscoveryError.ApiFailure)
+        // in a field list that also matches non-album media. A rejected expansion is reported as a
+        // plain "invalid parameter", which is the one case worth retrying without it: losing
+        // carousel members is a degraded result, not a failed one.
+        //
+        // The retry keys off its own signal rather than off the user-facing error, because that
+        // error is deliberately coarse — "invalid parameter" is also reported to the user as an
+        // unavailable target, and those two must not become coupled.
+        if (queryRejected && request.IncludeChildren)
         {
             _logger.LogInformation(
                 "Retrying Business Discovery without the nested children expansion; carousel members will be unavailable.");
-            return await SendAsync(username, request, includeChildren: false, cancellationToken);
+
+            (result, queryRejected) = await SendAsync(username, request, includeChildren: false, cancellationToken);
+
+            if (queryRejected)
+            {
+                // Worth saying loudly: if this fires for every account the field list is wrong,
+                // and users are being told targets are unavailable when the fault is here.
+                _logger.LogWarning(
+                    "Business Discovery rejected the query even without the children expansion. "
+                    + "If this happens for every account, the requested field list is at fault.");
+            }
         }
 
         return result;
     }
 
-    private async Task<BusinessDiscoveryResult> SendAsync(
+    /// <summary>
+    /// One attempt. The second element says the API rejected the query itself rather than the
+    /// target — the signal the children retry keys off, kept separate from the reported error.
+    /// </summary>
+    private async Task<(BusinessDiscoveryResult Result, bool QueryRejected)> SendAsync(
         string username, MediaPageRequest request, bool includeChildren, CancellationToken cancellationToken)
     {
         var uri = BuildUri(username, request, includeChildren);
@@ -192,12 +210,13 @@ public sealed class InstagramGraphClient : IInstagramGraphClient
             (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
         {
             _logger.LogWarning(ex, "Could not reach the Graph API for a Business Discovery lookup.");
-            return BusinessDiscoveryResult.Fail(BusinessDiscoveryError.Unreachable);
+            return (BusinessDiscoveryResult.Fail(BusinessDiscoveryError.Unreachable), false);
         }
 
         if (!IsSuccess(status))
         {
-            return BusinessDiscoveryResult.Fail(ClassifyFailure(status, body));
+            var (error, queryRejected) = ClassifyFailure(status, body);
+            return (BusinessDiscoveryResult.Fail(error), queryRejected);
         }
 
         try
@@ -208,15 +227,15 @@ public sealed class InstagramGraphClient : IInstagramGraphClient
                 // A 200 with no business_discovery object is how the edge says it resolved
                 // nothing. Same outcome as an explicit "invalid user" error, on purpose.
                 _logger.LogInformation("Business Discovery returned no profile for the requested target.");
-                return BusinessDiscoveryResult.Fail(BusinessDiscoveryError.TargetUnavailable);
+                return (BusinessDiscoveryResult.Fail(BusinessDiscoveryError.TargetUnavailable), false);
             }
 
-            return BusinessDiscoveryResult.Ok(profile);
+            return (BusinessDiscoveryResult.Ok(profile), false);
         }
         catch (InstagramGraphFormatException ex)
         {
             _logger.LogWarning(ex, "Business Discovery returned a body in an unexpected shape.");
-            return BusinessDiscoveryResult.Fail(BusinessDiscoveryError.UnexpectedFormat);
+            return (BusinessDiscoveryResult.Fail(BusinessDiscoveryError.UnexpectedFormat), false);
         }
     }
 
@@ -254,14 +273,21 @@ public sealed class InstagramGraphClient : IInstagramGraphClient
     }
 
     /// <summary>
-    /// Maps a Graph failure onto something the UI can act on.
+    /// Maps a Graph failure onto something the UI can act on, and says whether the API rejected
+    /// the query rather than the target.
     ///
-    /// The codes are the documented ones; the exact code Meta returns for "this username is not a
-    /// Professional account" versus "this username does not exist" is not something the docs pin
-    /// down, and both are reported here as <see cref="BusinessDiscoveryError.TargetUnavailable"/>
-    /// anyway — so getting the split between them wrong cannot change what a user sees.
+    /// Meta's documentation does not pin down which code comes back for "this username is not a
+    /// Professional account" versus "this username does not exist" versus "this account is
+    /// private". Since all three have to reach the user as one indistinguishable message, the
+    /// mapping errs towards <see cref="BusinessDiscoveryError.TargetUnavailable"/>: every 4xx
+    /// that is not clearly about the token or throttling is reported as an unreadable target.
+    /// Guessing wrong that way costs nothing a user can see, whereas leaving a case on a
+    /// different error would give away which one it was through the status code and message.
+    ///
+    /// The cost is that a genuine fault in this app's own field list also reads as "unavailable".
+    /// The <c>QueryRejected</c> flag and the log line above are what keep that diagnosable.
     /// </summary>
-    private BusinessDiscoveryError ClassifyFailure(HttpStatusCode status, string body)
+    private (BusinessDiscoveryError Error, bool QueryRejected) ClassifyFailure(HttpStatusCode status, string body)
     {
         var error = BusinessDiscoveryJson.ParseError(body);
 
@@ -271,29 +297,38 @@ public sealed class InstagramGraphClient : IInstagramGraphClient
 
         if (status == HttpStatusCode.TooManyRequests)
         {
-            return BusinessDiscoveryError.RateLimited;
+            return (BusinessDiscoveryError.RateLimited, false);
         }
 
         return error?.Code switch
         {
             // OAuth: expired, revoked, or simply wrong token.
-            102 or 190 or 463 or 467 => BusinessDiscoveryError.AccessTokenRejected,
+            102 or 190 or 463 or 467 => (BusinessDiscoveryError.AccessTokenRejected, false),
 
             // Throttling families: app-level, user-level, and account-level.
-            4 or 17 or 32 or 613 => BusinessDiscoveryError.RateLimited,
+            4 or 17 or 32 or 613 => (BusinessDiscoveryError.RateLimited, false),
 
             // "Invalid user id" — what the edge says when the username resolves to nothing it
             // is allowed to read.
-            110 => BusinessDiscoveryError.TargetUnavailable,
+            110 => (BusinessDiscoveryError.TargetUnavailable, false),
 
-            // Generic "invalid parameter", but with an Instagram subcode that means the target
-            // is not a Professional account. Without one of those subcodes it is more likely a
-            // fault in the field expansion this app sent, which is not a target problem.
-            100 when error.Subcode is 2207013 or 2207025 => BusinessDiscoveryError.TargetUnavailable,
+            // "Invalid parameter" carrying an Instagram subcode: definitely about the target,
+            // so there is nothing to retry.
+            100 when error.Subcode is 2207013 or 2207025 => (BusinessDiscoveryError.TargetUnavailable, false),
 
-            _ => status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
-                ? BusinessDiscoveryError.AccessTokenRejected
-                : BusinessDiscoveryError.ApiFailure,
+            // "Invalid parameter" with no subcode is ambiguous — it is also what a rejected
+            // field expansion looks like. Worth one retry without the undocumented part; if it
+            // survives that, it is reported as an unreadable target like every other 4xx.
+            100 => (BusinessDiscoveryError.TargetUnavailable, true),
+
+            _ when status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden =>
+                (BusinessDiscoveryError.AccessTokenRejected, false),
+
+            // Any other 4xx is about what was asked for, and the only thing this app asks for is
+            // a target. A 5xx is Meta's own fault and stays generic.
+            _ => ((int)status is >= 400 and < 500
+                ? BusinessDiscoveryError.TargetUnavailable
+                : BusinessDiscoveryError.ApiFailure, false),
         };
     }
 
