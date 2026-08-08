@@ -30,9 +30,6 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   empty page rather than an error, and an individual post whose `media_url` Instagram
   withheld for copyright is shown as an unavailable item without affecting the rest of
   the page.
-- **Stories are not available through the official API.** No endpoint in Meta's documentation
-  returns another account's stories by username, so the Stories tab is shown as permanently
-  unavailable rather than omitted silently. Stories remain available through the paste flow.
 - **Instagram Graph API client for Business Discovery.** `InstagramGraphClient` looks up
   another account by username and returns one page of its media, requesting `id`,
   `media_type`, `media_url`, `thumbnail_url`, `permalink`, `timestamp` and `caption`.
@@ -46,6 +43,39 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `story_reel_with_seven_mixed_items.json` (7 mixed photos and videos), both derived
   from the existing sanitized captures, so behaviour past the page boundary is
   exercised rather than assumed.
+
+### Configuration
+
+- **New settings, required only by the discovery tabs.** `InstagramGraph:IgUserId` and
+  `InstagramGraph:AccessToken` identify the app's own connected Instagram Professional
+  account. `appsettings.json` carries the section with empty values to document its shape;
+  real values come from user-secrets in development or `InstagramGraph__*` environment
+  variables elsewhere, and neither is ever committed. `InstagramGraph:MediaPageSize`
+  (default 6) and `InstagramGraph:MaxPostSearchPages` (default 10) are optional. The paste
+  flow and the test suite need none of this. See `README.md` under "Configuration".
+- **No new NuGet dependencies.** The Graph API client is built on `HttpClientFactory` and
+  `System.Text.Json` from the shared framework, so the web project still declares zero
+  `PackageReference` and the component inventory in `NOTICE` is unchanged.
+
+### Scope decisions
+
+- **Stories were evaluated for the Phase 2 tabs and dropped.** No endpoint in Meta's
+  official Instagram Platform documentation supports fetching another account's stories by
+  username — not for public, private, Business or Creator accounts. `GET /{ig-user-id}/stories`
+  is scoped to the token's own IG User and takes no username; Business Discovery, the one
+  edge built for username lookups of other accounts, documents no `stories` field or
+  sub-edge; Sharing to Stories is publish-only to the app's own account; and Hashtag Search,
+  Mentions, Tags and Live Media do not touch stories.
+
+  **This is recorded as an unsupported and undocumented capability of the official API — not
+  a missing permissions scope and not an App Review outcome.** Requesting further permissions
+  or submitting for review would not change it, because there is no endpoint to call. To be
+  revisited only if Meta's documentation changes.
+
+  Stories remain fully available through the Phase 1 paste flow, which is unaffected. The
+  discovery tab strip shows Stories as permanently disabled rather than hiding it, so the
+  absence is explained where someone would look for it. Research notes are in
+  `phase2-documentation.md`.
 
 ## [0.0.1] — 2026-08-04
 
