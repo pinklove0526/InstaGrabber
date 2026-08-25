@@ -29,6 +29,18 @@ public static class Fixtures
     /// </summary>
     public const string SevenMixed = "story_reel_with_seven_mixed_items.json";
 
+    /// <summary>
+    /// The capture that pins the <c>music_metadata</c> regression: a two-item mixed reel
+    /// (photo then video) from a response carrying the key Meta added to story items. It is
+    /// null on both items, including the one with a music sticker.
+    ///
+    /// Two things here are faithful to the capture and must not be "tidied": the photo's
+    /// image candidates are <c>.heic</c>, not <c>.jpg</c>, and all three of the video's
+    /// renditions share one identical URL — <c>type</c> 101/102/103 differ only in the JSON
+    /// field. Real responses do not give renditions distinct URLs.
+    /// </summary>
+    public const string WithMusicMetadata = "story_reel_with_music_metadata.json";
+
     public static string Read(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
 
@@ -39,6 +51,7 @@ public static class Fixtures
         [WithoutMusic],
         [EightVideos],
         [SevenMixed],
+        [WithMusicMetadata],
     ];
 
     /// <summary>

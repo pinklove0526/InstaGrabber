@@ -108,6 +108,65 @@ public class InstagramJsonTests
         Assert.NotEmpty(response.Data.ReelsMediaFeed.ReelsMedia[0].Items);
     }
 
+    // ---- music_metadata: the key Meta added to story items.
+
+    /// <summary>
+    /// The regression this capture pins. Before <see cref="ReelItem.MusicMetadata"/> existed,
+    /// <c>UnmappedMemberHandling.Disallow</c> rejected this entire response over one unknown
+    /// key — the whole paste failed, not just the music metadata.
+    /// </summary>
+    [Fact]
+    public void Parses_capture_carrying_music_metadata()
+    {
+        var response = InstagramJson.Parse(Fixtures.Read(Fixtures.WithMusicMetadata));
+
+        var reel = Assert.Single(response.Data.ReelsMediaFeed.ReelsMedia);
+        Assert.Collection(
+            reel.Items,
+            photo =>
+            {
+                Assert.Equal(StoryMediaKind.Image, photo.Kind);
+                Assert.Null(photo.VideoVersions);
+                Assert.NotEmpty(photo.ImageVersions2.Candidates);
+            },
+            video =>
+            {
+                Assert.Equal(StoryMediaKind.Video, video.Kind);
+                Assert.Equal(3, video.VideoVersions!.Count);
+                Assert.Single(video.StoryMusicStickers!);
+            });
+    }
+
+    /// <summary>
+    /// Null in every capture seen so far — including the item that *does* carry a music
+    /// sticker — so a present-but-null value must not trip the unmapped-member check.
+    /// </summary>
+    [Fact]
+    public void Music_metadata_present_but_null_is_accepted()
+    {
+        var json = Fixtures.Read(Fixtures.WithMusicMetadata);
+
+        // Guard: without the key actually in the fixture this test would pass vacuously.
+        Assert.Contains("\"music_metadata\"", json);
+
+        var response = InstagramJson.Parse(json);
+
+        Assert.All(
+            response.Data.ReelsMediaFeed.ReelsMedia[0].Items,
+            item => Assert.Null(item.MusicMetadata));
+    }
+
+    /// <summary>Responses that predate the key omit it entirely; both shapes must parse.</summary>
+    [Fact]
+    public void Music_metadata_absent_is_accepted()
+    {
+        var json = RemoveFromFirstItem(Fixtures.WithMusicMetadata, "music_metadata");
+
+        var item = InstagramJson.Parse(json).Data.ReelsMediaFeed.ReelsMedia[0].Items[0];
+
+        Assert.Null(item.MusicMetadata);
+    }
+
     // ---- Load-bearing fields stay strict.
 
     [Theory]
