@@ -15,6 +15,24 @@ sends `story_music_stickers: null`, one with no mentions sends `story_bloks_stic
 Modelling them as always-present caused real rejections of valid responses. Do not "tidy up" by
 making them `required`.
 
+## Meta added `music_metadata` to story items (confirmed 2026-08-25)
+
+A new per-item key, sitting alongside the existing `story_music_stickers`. With
+`UnmappedMemberHandling.Disallow` on, the single unknown key rejected the **entire** pasted
+response — the predicted false rejection, arriving exactly as expected.
+
+Handled per the existing convention: `ReelItem.MusicMetadata`, typed `object?`, decorative, not
+`required`. Nothing reads it and nothing should yet.
+
+**Its populated shape is unconfirmed.** It is JSON null in every capture seen so far, including
+an item that *does* carry a music sticker, so there is no evidence of what it holds. Do not
+model it as a typed object, and do not assume it mirrors `story_music_stickers`, until a real
+capture shows a non-null value. `story_reel_with_music_metadata.json` pins the regression.
+
+The wider lesson is the one already recorded below: this shape change cost one property, but
+only because the *spine* did not move. Check that assumption before assuming the next drift is
+equally cheap — and note the break looked far more alarming than it was.
+
 ## Ordering assumptions — read carefully, they differ per field
 
 **`video_versions`: we use entry `[0]` and cannot verify it is the best.** The payload carries

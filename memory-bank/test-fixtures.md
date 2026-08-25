@@ -43,6 +43,21 @@ exercised against something other than a handful of stories:
 Both keep a single reel, which the shared theories rely on. `MultiPageResultsTests` covers
 them; the paging itself is JS and is not exercised by `dotnet test`.
 
+## The `music_metadata` capture
+
+`story_reel_with_music_metadata.json` — a two-item mixed reel (photo, then video) sanitized
+from a 2026-08-25 capture. It is the only fixture carrying `music_metadata`, the key whose
+absence from the models rejected whole responses; see `decisions-and-gotchas.md`. In
+`Fixtures.All` only — it has a photo, so it stays out of `VideoOnly`, and two items is under
+the page size, so it is not `MultiPage`.
+
+Two details are faithful to the capture and must not be "tidied":
+
+- The photo's `image_versions2` candidates are **`.heic`**, not `.jpg`.
+- All three of the video's renditions share **one identical URL**; `type` 101/102/103 differ
+  only in the JSON field. Real responses do not give renditions distinct URLs — the same trap
+  as the invented-filename bug noted below.
+
 ## Which member list to add a capture to
 
 | Member | Covers |

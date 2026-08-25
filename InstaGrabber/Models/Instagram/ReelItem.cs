@@ -184,6 +184,16 @@ public sealed class ReelItem
     [JsonPropertyName("media_overlay_info")]
     public object? MediaOverlayInfo { get; init; }
 
+    /// <summary>
+    /// Added by Meta alongside the existing <c>story_music_stickers</c>; without a property
+    /// here <see cref="JsonUnmappedMemberHandling.Disallow"/> rejects the whole response.
+    /// Its populated shape is UNCONFIRMED — it is null in every capture seen so far, including
+    /// items that do carry a music sticker. Do not model it as a typed object until a real
+    /// capture shows what it holds, and do not assume it mirrors <c>story_music_stickers</c>.
+    /// </summary>
+    [JsonPropertyName("music_metadata")]
+    public object? MusicMetadata { get; init; }
+
     [JsonPropertyName("preview")]
     public object? Preview { get; init; }
 
