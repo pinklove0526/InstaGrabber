@@ -33,6 +33,26 @@ The wider lesson is the one already recorded below: this shape change cost one p
 only because the *spine* did not move. Check that assumption before assuming the next drift is
 equally cheap — and note the break looked far more alarming than it was.
 
+## `ItemUser` lagged behind `ReelUser` on decorative coverage (confirmed 2026-08-27)
+
+A second false rejection, same week, different type. The item-level `ItemUser` was missing
+fields the reel-level `ReelUser` already tolerated, so a response died on
+`items[0].user.is_ai_user` even though the identical key on `reels_media[0].user` parsed fine.
+A real capture confirms `ItemUser` carries `is_ai_user`, `aigm_account_label_info` and
+`interop_messaging_user_fbid` — all 26 items, the first two null throughout, the third a
+populated string. `interop_messaging_user_fbid` was already mapped; the other two were added
+as `object?`.
+
+`is_ai_user` is deliberately **not** `bool?`. Its populated shape is unconfirmed, and the
+`is_` prefix proves nothing here — `ReelItem.is_dash_eligible` is an integer flag with the
+same prefix. Narrowing it on the strength of the name is how the next false rejection starts.
+
+**The reusable lesson: these two models describe the same account from different places in the
+payload, so a decorative field on one is a standing hint to check the other.** The parser
+reports only the *first* unmapped key, so fixing what the error names and re-running proves
+very little. Walk the whole object graph against the models instead — checking keys per
+declaring type, since a key mapped on `ReelUser` says nothing about `ItemUser`.
+
 ## Ordering assumptions — read carefully, they differ per field
 
 **`video_versions`: we use entry `[0]` and cannot verify it is the best.** The payload carries

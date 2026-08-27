@@ -38,6 +38,10 @@ public static class Fixtures
     /// image candidates are <c>.heic</c>, not <c>.jpg</c>, and all three of the video's
     /// renditions share one identical URL — <c>type</c> 101/102/103 differ only in the JSON
     /// field. Real responses do not give renditions distinct URLs.
+    ///
+    /// The item-level <c>user</c> objects were later extended with <c>is_ai_user</c> and
+    /// <c>aigm_account_label_info</c> — both null, in the key order a real capture uses — so
+    /// this fixture tracks the current response shape rather than one capture verbatim.
     /// </summary>
     public const string WithMusicMetadata = "story_reel_with_music_metadata.json";
 

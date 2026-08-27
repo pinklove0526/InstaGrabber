@@ -167,6 +167,71 @@ public class InstagramJsonTests
         Assert.Null(item.MusicMetadata);
     }
 
+    // ---- ItemUser decorative coverage. This type lagged behind ReelUser and rejected
+    //      whole responses over fields the reel-level user already tolerated.
+
+    /// <summary>
+    /// Both fields are null in every item of every capture seen so far, so the null case is
+    /// the one real responses actually exercise.
+    /// </summary>
+    [Fact]
+    public void Item_user_decorative_fields_parse_as_null()
+    {
+        var json = Fixtures.Read(Fixtures.WithMusicMetadata);
+
+        // Guards: without the keys in the fixture these assertions would pass vacuously.
+        Assert.Contains("\"is_ai_user\"", json);
+        Assert.Contains("\"aigm_account_label_info\"", json);
+
+        var response = InstagramJson.Parse(json);
+
+        Assert.All(response.Data.ReelsMediaFeed.ReelsMedia[0].Items, item =>
+        {
+            Assert.NotNull(item.User);
+            Assert.Null(item.User!.IsAiUser);
+            Assert.Null(item.User.AigmAccountLabelInfo);
+            Assert.False(string.IsNullOrEmpty(item.User.InteropMessagingUserFbid));
+        });
+    }
+
+    /// <summary>
+    /// No capture has shown a populated value, so this pins that a value of *any* shape is
+    /// carried through rather than rejected — which is the whole point of leaving the two
+    /// untyped. <c>is_ai_user</c> is given a boolean here only as a plausible value; that is
+    /// not a claim about what Instagram actually sends.
+    /// </summary>
+    [Fact]
+    public void Item_user_decorative_fields_parse_when_populated()
+    {
+        var json = RewriteFirstItemUser(Fixtures.WithMusicMetadata, user =>
+        {
+            user["is_ai_user"] = true;
+            user["aigm_account_label_info"] = new Dictionary<string, object?> { ["label_text"] = "AI info" };
+            user["interop_messaging_user_fbid"] = "2000000009";
+        });
+
+        var user = InstagramJson.Parse(json).Data.ReelsMediaFeed.ReelsMedia[0].Items[0].User;
+
+        Assert.NotNull(user);
+        Assert.True(((JsonElement)user!.IsAiUser!).GetBoolean());
+        Assert.Equal(JsonValueKind.Object, ((JsonElement)user.AigmAccountLabelInfo!).ValueKind);
+        Assert.Equal("2000000009", user.InteropMessagingUserFbid);
+    }
+
+    /// <summary>
+    /// Widening ItemUser must not have made it permissive: a genuinely new key on the nested
+    /// user still has to surface, exactly as it does at item level.
+    /// </summary>
+    [Fact]
+    public void Unknown_item_user_property_is_reported()
+    {
+        var json = RewriteFirstItemUser(Fixtures.WithMusicMetadata, user => user["brand_new_user_field"] = null);
+
+        var ex = Assert.Throws<InstagramFormatException>(() => InstagramJson.Parse(json));
+
+        Assert.Contains("brand_new_user_field", ex.Message);
+    }
+
     // ---- Load-bearing fields stay strict.
 
     [Theory]
@@ -315,6 +380,13 @@ public class InstagramJsonTests
     {
         var node = JsonSerializer.Deserialize<JsonElement>(Fixtures.Read(fixture));
         return RewriteFirstItem(node, item => item.Remove(property));
+    }
+
+    /// <summary>Same idea as <see cref="RewriteFirstItem"/>, one level deeper.</summary>
+    private static string RewriteFirstItemUser(string fixture, Action<Dictionary<string, object?>> mutate)
+    {
+        var node = JsonSerializer.Deserialize<JsonElement>(Fixtures.Read(fixture));
+        return RewriteFirstItem(node, item => mutate((Dictionary<string, object?>)item["user"]!));
     }
 
     private static string SetFirstItemNumber(string json, string property, int value)

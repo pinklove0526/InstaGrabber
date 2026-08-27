@@ -108,6 +108,8 @@
                             "user": {
                                 "pk": "1000000001",
                                 "id": "1000000001",
+                                "is_ai_user": null,
+                                "aigm_account_label_info": null,
                                 "interop_messaging_user_fbid": "2000000001"
                             },
                             "inventory_source": null,
@@ -272,6 +274,8 @@
                             "user": {
                                 "pk": "1000000001",
                                 "id": "1000000001",
+                                "is_ai_user": null,
+                                "aigm_account_label_info": null,
                                 "interop_messaging_user_fbid": "2000000001"
                             },
                             "inventory_source": null,

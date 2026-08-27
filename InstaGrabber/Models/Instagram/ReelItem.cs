@@ -249,7 +249,14 @@ public sealed class ReelItem
     public object? WearableAttributionInfo { get; init; }
 }
 
-/// <summary>The per-item author stub — fewer fields than <see cref="ReelUser"/>.</summary>
+/// <summary>
+/// The per-item author stub — fewer fields than <see cref="ReelUser"/>.
+///
+/// This type lagged behind <see cref="ReelUser"/> on decorative coverage and rejected whole
+/// responses because of it. The two models describe the *same* account from different places
+/// in the payload, so a decorative field appearing on one is a standing hint to check the
+/// other; they do not have to match, but a gap here is the cheaper thing to close early.
+/// </summary>
 public sealed class ItemUser
 {
     [JsonPropertyName("pk")]
@@ -260,6 +267,19 @@ public sealed class ItemUser
 
     [JsonPropertyName("interop_messaging_user_fbid")]
     public string? InteropMessagingUserFbid { get; init; }
+
+    /// <summary>
+    /// Untyped deliberately: null in all 26 items of the only capture carrying it, so the
+    /// populated shape is unconfirmed. The <c>is_</c> prefix is not evidence of a boolean —
+    /// <see cref="ReelItem.IsDashEligible"/> is an integer flag despite the same prefix — so
+    /// do not narrow this to <c>bool?</c> without a real capture showing a value.
+    /// </summary>
+    [JsonPropertyName("is_ai_user")]
+    public object? IsAiUser { get; init; }
+
+    /// <summary>Matches <see cref="ReelUser.AigmAccountLabelInfo"/>; null in every capture.</summary>
+    [JsonPropertyName("aigm_account_label_info")]
+    public object? AigmAccountLabelInfo { get; init; }
 }
 
 public sealed class ImageVersions2
